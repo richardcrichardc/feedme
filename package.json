@@ -1,0 +1,14 @@
+{
+  "name": "feedme",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "sass": "node-sass --output assets scss/bootstrap.scss"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-sass": "^4.8.3"
+  }
+}

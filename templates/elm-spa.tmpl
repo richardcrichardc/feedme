@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Feedme</title>
+
+    <!-- Bootstrap CSS -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+
+    <!-- <%= stylesheet_link_tag    'application', media: 'all', 'data-turbolinks-track': 'reload' %> -->
+    <script src="assets/elm.js"></script>
+  </head>
+
+  <body>
+    <div id="elm-container">
+    </div>
+
+    <script type="text/javascript" charset="utf-8">
+      var node = document.getElementById('elm-container')
+      var flags = {{.}}
+      var elmApp = Elm.PlaceOrder.embed(node, flags)
+
+      elmApp.ports.scrollIntoView.subscribe(function(domId) {
+       var el = document.getElementById(domId)
+       el ? el.scrollIntoView() : null
+      })
+    </script>
+  </body>
+</html>

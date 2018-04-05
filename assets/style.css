@@ -1,0 +1,77 @@
+/*
+Error: Invalid CSS after "...lor}: #{$value}": expected "{", was ";"
+        on line 4 of scss/_root.scss
+        from line 11 of scss/bootstrap.scss
+
+1: :root {
+2:   // Custom variable values only support SassScript inside `#{}`.
+3:   @each $color, $value in $colors {
+4:     --#{$color}: #{$value};
+5:   }
+6: 
+7:   @each $color, $value in $theme-colors {
+8:     --#{$color}: #{$value};
+9:   }
+
+Backtrace:
+scss/_root.scss:4
+scss/bootstrap.scss:11
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:1278:in `expected'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:1208:in `expected'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:1203:in `tok!'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:677:in `block'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:747:in `declaration_or_ruleset'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:697:in `block_child'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:686:in `block_contents'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:678:in `block'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:319:in `each_directive'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:234:in `special_directive'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:209:in `directive'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:697:in `block_child'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:686:in `block_contents'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:678:in `block'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:670:in `ruleset'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:696:in `block_child'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:686:in `block_contents'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:137:in `stylesheet'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/scss/parser.rb:41:in `parse'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/engine.rb:414:in `_to_tree'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/engine.rb:321:in `to_tree'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:327:in `block in visit_import'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/stack.rb:88:in `block in with_import'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/stack.rb:135:in `with_frame'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/stack.rb:88:in `with_import'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:326:in `visit_import'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/base.rb:36:in `visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:162:in `block in visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/stack.rb:79:in `block in with_base'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/stack.rb:135:in `with_frame'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/stack.rb:79:in `with_base'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:162:in `visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/base.rb:52:in `block in visit_children'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/base.rb:52:in `map'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/base.rb:52:in `visit_children'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:171:in `block in visit_children'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:183:in `with_environment'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:170:in `visit_children'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/base.rb:36:in `block in visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:190:in `visit_root'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/base.rb:36:in `visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:161:in `visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/visitors/perform.rb:10:in `visit'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/root_node.rb:36:in `css_tree'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/tree/root_node.rb:29:in `render_with_sourcemap'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/engine.rb:389:in `_render_with_sourcemap'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/engine.rb:307:in `render_with_sourcemap'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/exec/sass_scss.rb:391:in `run'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/exec/sass_scss.rb:63:in `process_result'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/exec/base.rb:52:in `parse'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/lib/sass/exec/base.rb:19:in `parse!'
+/Users/richardc/.rvm/gems/ruby-2.2.3/gems/sass-3.5.1/bin/sass:13:in `<top (required)>'
+/Users/richardc/.rvm/gems/ruby-2.2.3/bin/sass:23:in `load'
+/Users/richardc/.rvm/gems/ruby-2.2.3/bin/sass:23:in `<main>'
+*/
+body:before {
+  white-space: pre;
+  font-family: monospace;
+  content: "Error: Invalid CSS after \"...lor}: #{$value}\": expected \"{\", was \";\"\A         on line 4 of scss/_root.scss\A         from line 11 of scss/bootstrap.scss\A \A 1: :root {\A 2:   // Custom variable values only support SassScript inside `#{}`.\A 3:   @each $color, $value in $colors {\A 4:     --#{$color}: #{$value};\A 5:   }\A 6: \A 7:   @each $color, $value in $theme-colors {\A 8:     --#{$color}: #{$value};\A 9:   }"; }
