@@ -6,4 +6,6 @@ cd ..
 
 chronic npm run sass
 
+go build ./tools/hasher/ && ./hasher
+
 go build -o gin-bin

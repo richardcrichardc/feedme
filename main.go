@@ -8,11 +8,12 @@ import (
 )
 
 func main() {
+  initAssets()
   initTemplates()
   initDB()
 
   router := mux.NewRouter()
-  router.PathPrefix("/assets/").HandlerFunc(assets)
+  router.PathPrefix("/assets/").Handler(assetsHandler())
   router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
   log.Fatal(http.ListenAndServe(":" + listenPort(), router))
 }

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "sass": "node-sass --output assets scss/bootstrap.scss"
+    "sass": "node-sass --output assets scss/feedme.scss"
   },
   "author": "",
   "license": "ISC",

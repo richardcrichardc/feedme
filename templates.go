@@ -7,10 +7,14 @@ import (
 var templates *template.Template
 
 func initTemplates() {
-  templates = template.Must(template.ParseGlob("templates/*.tmpl"))
+  templates = template.New("root")
 
-  //for _, t := range templates.Templates() {
-  //  fmt.Printf("template: %s", t.Name())
-  //}
+  templates.Funcs(template.FuncMap{
+    "asset": assetPath,
+  })
+
+  _, err := templates.ParseGlob("templates/*.tmpl")
+  checkError(err)
+
 }
 

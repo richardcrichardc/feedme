@@ -2,3 +2,7 @@
 node_modules
 elm/elm-stuff
 gin-bin
+assets-hashed
+assets/elm.js
+assets/feedme.css
+hasher

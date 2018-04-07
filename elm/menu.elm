@@ -209,7 +209,7 @@ logoView title =
   div
     [ class "container logoBox d-flex flex-column justify-content-center" ]
     [ div [ ]
-      [ img [ class "mx-auto d-block", src "/assets/food.jpg" ] []
+      [ img [ class "mx-auto d-block", src "/assets/food-e8350f.jpg" ] []
       , h1 [ class "text-center", style [("margin-top", "1em")] ] [ text title ]
       ]
     ]
