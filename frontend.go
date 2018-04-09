@@ -39,11 +39,7 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
 
   slug := mux.Vars(req)["slug"]
 
-  var restaurant Restaurant
-  if db.Where("slug = ?", slug).First(&restaurant).RecordNotFound() {
-    http.NotFound(w, req)
-    return
-  }
+  restaurant := fetchRestaurantBySlug(slug)
 
   d.Fields.MenuId = 42
 

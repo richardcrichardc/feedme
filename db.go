@@ -2,13 +2,14 @@ package main
 
 
 import (
-  "log"
-  "github.com/jinzhu/gorm"
-  _ "github.com/jinzhu/gorm/dialects/postgres"
+  //"log"
+  "github.com/jmoiron/sqlx"
+  _ "github.com/lib/pq"
+
 )
 
 type Restaurant struct {
-  Id uint `gorm:"primary_key"`
+  Id uint
 
   Slug string
   Name string
@@ -26,14 +27,45 @@ type Restaurant struct {
   Menu string
 }
 
-var db *gorm.DB
+func fetchRestaurant(id int) *Restaurant {
+  var restaurant Restaurant
+  checkError(db.Get(&restaurant, "SELECT * FROM restaurants WHERE id = $1", id))
+  return &restaurant
+}
+
+func fetchRestaurantBySlug(slug string) *Restaurant {
+  var restaurant Restaurant
+  checkError(db.Get(&restaurant, "SELECT * FROM restaurants WHERE slug = $1", slug))
+  return &restaurant
+}
+
+var db *sqlx.DB
 
 func initDB() {
-  var err error
-  db, err = gorm.Open("postgres", "dbname=feedme sslmode=disable")
-  if err != nil {
-    log.Fatalf("Failed to connect to database: %s", err)
+  db = sqlx.MustOpen("postgres", "dbname=feedme sslmode=disable")
+
+  tx := db.MustBegin()
+
+  schema := []string {
+    `CREATE TABLE IF NOT EXISTS restaurants (
+      id SERIAL PRIMARY KEY,
+      slug text,
+      name text,
+      address1 text,
+      address2 text,
+      town text,
+      phone text,
+      mapLocation text,
+      mapZoom text,
+      about text,
+      menu text
+    )`,
   }
 
-  db.AutoMigrate(&Restaurant{})
+  for _, stmt := range schema {
+    tx.MustExec(stmt)
+  }
+
+  checkError(tx.Commit())
+
 }
