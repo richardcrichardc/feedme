@@ -8,37 +8,6 @@ import (
 
 )
 
-type Restaurant struct {
-  Id uint
-
-  Slug string
-  Name string
-
-  Address1 string
-  Address2 string
-  Town string
-  Phone string
-
-  MapLocation string
-  MapZoom string
-
-  About string
-
-  Menu string
-}
-
-func fetchRestaurant(id int) *Restaurant {
-  var restaurant Restaurant
-  checkError(db.Get(&restaurant, "SELECT * FROM restaurants WHERE id = $1", id))
-  return &restaurant
-}
-
-func fetchRestaurantBySlug(slug string) *Restaurant {
-  var restaurant Restaurant
-  checkError(db.Get(&restaurant, "SELECT * FROM restaurants WHERE slug = $1", slug))
-  return &restaurant
-}
-
 var db *sqlx.DB
 
 func initDB() {

@@ -18,7 +18,7 @@ func main() {
   initDB()
 
   router := mux.NewRouter()
-  router.HandleFunc("/admin/restaurants/{id}", handleRestaurant)
+  router.HandleFunc("/admin/restaurants/{id}",editRestaurant)
   router.PathPrefix("/assets/").Handler(assetsHandler())
   router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
 

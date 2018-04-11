@@ -7,12 +7,8 @@ import (
   "html/template"
 )
 
-
-
-
 func getFrontEnd(w http.ResponseWriter, req *http.Request) {
-
- var d struct {
+  var flags struct {
     Fields struct {
       MenuId int `json:"menu_id"`
       Menu interface{} `json:"menu"`
@@ -23,34 +19,26 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
       AuthToken string `json:"auth_token"`
     } `json:"target"`
   }
-/*
-      var flags = {
-        "fields": {
-          "menu_id": <%== safe_script_to_json(@menu.id) %>,
-          "menu": <%== safe_script_json(@menu.json) %>
-        },
-        "target": <%== safe_script_to_json({
-          'method' => 'POST',
-          'url' => request.fullpath,
-          'auth_token' => form_authenticity_token
-        }) %>
-      }
-*/
 
   slug := mux.Vars(req)["slug"]
-
   restaurant := fetchRestaurantBySlug(slug)
+  flags.Fields.MenuId = 42
+  checkError(json.Unmarshal([]byte(restaurant.Menu), &flags.Fields.Menu))
 
-  d.Fields.MenuId = 42
+  elmApp(w, req, "PlaceOrder", flags)
+}
 
-  err := json.Unmarshal([]byte(restaurant.Menu), &d.Fields.Menu)
-  if err != nil {
-    panic(err)
+func elmApp(w http.ResponseWriter, req *http.Request, appName string, flags interface{}) {
+  var d struct {
+    App template.JS
+    Flags template.JS
   }
 
-  jsonBytes, _ := json.MarshalIndent(d, "", "  ")
+  flagsJson, err := json.MarshalIndent(flags, "", "  ")
+  checkError(err)
 
-  //w.Header().Set("Content-Type", "text/plain")
-  templates.Lookup("elm-spa.tmpl").Execute(w, template.JS(string(jsonBytes)))
+  d.App = template.JS(appName)
+  d.Flags = template.JS(string(flagsJson))
 
+  templates.Lookup("elm-spa.tmpl").Execute(w, d)
 }

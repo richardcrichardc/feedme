@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 cd elm
-chronic elm-make PlaceOrder.elm --output ../assets/elm.js --yes
+chronic elm-make *.elm --output ../assets/elm.js --yes
 cd ..
 
 chronic npm run sass

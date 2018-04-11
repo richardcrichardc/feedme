@@ -1,14 +1,12 @@
-port module PlaceOrder exposing (..)
+module PlaceOrder exposing (..)
 
 import Navigation
 
 import Menu
 import Rails
+import Scroll
 
 import Html exposing (..)
-
-port scrollIntoView : String -> Cmd msg
-
 
 main =
   Navigation.programWithFlags
@@ -40,15 +38,8 @@ init flags location =
     , menu = Just flags.fields.menu
     , order = []
     }
-  , scrollHash location
+  , Scroll.scrollHash location
   )
-
-scrollHash : Navigation.Location -> Cmd Msg
-scrollHash location =
-  if location.hash == "" then
-    Cmd.none
-  else
-    scrollIntoView (String.dropLeft 1 location.hash)
 
 -- UPDATE
 
