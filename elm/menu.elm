@@ -218,7 +218,7 @@ locationView : Html Msg
 locationView =
   div [ class "container section" ]
   [ h2 [ id "location" ] [ text "Location" ]
-  , img [ class "map mx-auto d-block", src "https://maps.googleapis.com/maps/api/staticmap?markers=foodtastic,Whanganui&zoom=17&size=300x300&style=feature:poi.business|visibility:off" ] []
+  , img [ class "map mx-auto d-block", src "https://maps.googleapis.com/maps/api/staticmap?markers=foodtastic,Whanganui&zoom=17&size=300x300&style=feature:poi.business|visibility:off&key=AIzaSyDBuq2YPG4anbgWG5K-IgayWR1dG9fSIFg" ] []
   , p [] [ text "Majestic Square, Whanganui" ]
   ]
 
