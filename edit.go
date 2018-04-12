@@ -13,5 +13,4 @@ type EditRow struct {
   Id string
   Label string
   Type string
-  Errors []string
 }
