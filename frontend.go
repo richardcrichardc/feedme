@@ -11,7 +11,7 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
   var flags struct {
     Fields struct {
       MenuId int `json:"menu_id"`
-      Menu interface{} `json:"menu"`
+      Menu rawJson `json:"menu"`
     } `json:"fields"`
     Target struct {
       Method string `json:"method"`
@@ -23,7 +23,7 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
   slug := mux.Vars(req)["slug"]
   restaurant := fetchRestaurantBySlug(slug)
   flags.Fields.MenuId = 42
-  checkError(json.Unmarshal([]byte(restaurant.Menu), &flags.Fields.Menu))
+  flags.Fields.Menu = restaurant.Menu
 
   elmApp(w, req, "PlaceOrder", flags)
 }

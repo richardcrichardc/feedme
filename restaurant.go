@@ -3,7 +3,6 @@ package main
 import (
   "github.com/gorilla/mux"
   "net/http"
-  //"encoding/json"
   "strconv"
 )
 
@@ -23,7 +22,7 @@ type Restaurant struct {
 
   About string
 
-  Menu string
+  Menu rawJson
 }
 
 func fetchRestaurant(id int) *Restaurant {
