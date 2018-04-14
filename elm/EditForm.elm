@@ -1,10 +1,10 @@
 module EditForm exposing (..)
 
 import Navigation
-import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list)
+import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, dict)
 import Html exposing (..)
 import Html.Attributes exposing (for)
-import Scroll
+import Dict
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
@@ -12,6 +12,7 @@ import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 
+import Scroll
 
 main =
   Navigation.programWithFlags
@@ -32,10 +33,12 @@ init flags location =
 
 type alias ResultModel = Result String Model
 
+type alias Data = Dict.Dict String String
+
 type alias Model =
   { what : String
   , rows : List Row
-  --, data : Decode.Value
+  , data : Data
   }
 
 type alias Row =
@@ -48,9 +51,10 @@ type RowType = StringRow
              | TextRow
 
 decodeModel : Decoder Model
-decodeModel = Decode.map2 Model
+decodeModel = Decode.map3 Model
     (field "What" string)
     (field "Rows" (list decodeRow))
+    (field "Data" (dict string))
 
 decodeRow : Decoder Row
 decodeRow =
@@ -93,18 +97,23 @@ view maybeModel =
     Ok model ->
       Grid.container []
         [ h1 [] [ text ("EditForm: " ++ model.what) ]
-        , Form.form [] (List.map rowView model.rows)
+        , Form.form [] (List.map (rowView model.data) model.rows)
         ]
 
-rowView : Row -> Html Msg
-rowView row =
-  Form.row []
-        [ Form.colLabel [ Col.sm2, Col.attrs [for row.id] ] [ text row.label]
-        , Form.col [ Col.sm10 ]
-          [ case row.rowType of
-              StringRow -> Input.text [ Input.id row.id ]
-              TextRow -> Textarea.textarea [ Textarea.id row.id ]
-          , Form.help [] [ text (toString row.rowType) ]
-          ]
+rowView : Data -> Row -> Html Msg
+rowView data row =
+  let
+    value = case Dict.get row.id data of
+      Just value -> value
+      Nothing -> "***MISSING DATA FIELD***"
+  in
+    Form.row []
+      [ Form.colLabel [ Col.sm2, Col.attrs [for row.id] ] [ text row.label]
+      , Form.col [ Col.sm10 ]
+        [ case row.rowType of
+            StringRow -> Input.text [ Input.id row.id, Input.value value ]
+            TextRow -> Textarea.textarea [ Textarea.id row.id, Textarea.value value ]
+        , Form.help [] [ text (toString row.rowType) ]
         ]
+      ]
 

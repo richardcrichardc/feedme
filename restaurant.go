@@ -7,7 +7,7 @@ import (
 )
 
 type Restaurant struct {
-  Id uint
+  Id uint `json:"-"`
 
   Slug string
   Name string
@@ -22,7 +22,7 @@ type Restaurant struct {
 
   About string
 
-  Menu rawJson
+  Menu rawJson `json:"-"`
 }
 
 func fetchRestaurant(id int) *Restaurant {
@@ -50,7 +50,7 @@ func editRestaurant(w http.ResponseWriter, req *http.Request) {
   var form = EditForm{
     What: "Restaurant",
     Rows: []EditRow{
-      {"Id", "Slug", "string"},
+      {"Slug", "Slug", "string"},
       {"Name", "Name", "string"},
       {"Address1", "Address", "string"},
       {"Address2", "", "string"},
@@ -59,18 +59,9 @@ func editRestaurant(w http.ResponseWriter, req *http.Request) {
       {"MapLocation", "Map Location", "string"},
       {"MapZoom", "Map Zoom", "string"},
       {"About", "About", "text"},
-      {"Menu", "Menu", "text"},
     },
     Data: restaurant,
   }
-
-
-  /*
-  jsonBytes, _ := json.MarshalIndent(form, "", "  ")
-
-  w.Header().Set("Content-Type", "text/plain")
-  w.Write(jsonBytes)
-  */
 
   elmApp(w, req, "EditForm", form)
 }
