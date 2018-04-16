@@ -38,39 +38,39 @@ type alias Data = Dict.Dict String String
 type alias Model =
   { what : String
   , rows : List Row
-  , data : Data
   }
 
 type alias Row =
-  { id : String
+  { rowType : RowType
+  , id : String
   , label : String
-  , rowType : RowType
+  , value : String
   }
 
 type RowType = StringRow
              | TextRow
 
 decodeModel : Decoder Model
-decodeModel = Decode.map3 Model
+decodeModel = Decode.map2 Model
     (field "What" string)
     (field "Rows" (list decodeRow))
-    (field "Data" (dict string))
 
 decodeRow : Decoder Row
 decodeRow =
-  Decode.map3 Row
+  Decode.map4 Row
+    (field "Type" decodeRowType)
     (field "Id" string)
     (field "Label" string)
-    (field "Type" decodeRowType)
+    (field "Value" string)
 
 decodeRowType : Decoder RowType
 decodeRowType =
   string
     |> Decode.andThen (\str ->
         case str of
-          "string" ->
+          "STRING" ->
             Decode.succeed StringRow
-          "text" ->
+          "TEXT" ->
             Decode.succeed TextRow
           somethingElse ->
             Decode.fail <| "Unknown type: " ++ somethingElse
@@ -97,22 +97,17 @@ view maybeModel =
     Ok model ->
       Grid.container []
         [ h1 [] [ text ("EditForm: " ++ model.what) ]
-        , Form.form [] (List.map (rowView model.data) model.rows)
+        , Form.form [] (List.map rowView model.rows)
         ]
 
-rowView : Data -> Row -> Html Msg
-rowView data row =
-  let
-    value = case Dict.get row.id data of
-      Just value -> value
-      Nothing -> "***MISSING DATA FIELD***"
-  in
+rowView : Row -> Html Msg
+rowView row =
     Form.row []
       [ Form.colLabel [ Col.sm2, Col.attrs [for row.id] ] [ text row.label]
       , Form.col [ Col.sm10 ]
         [ case row.rowType of
-            StringRow -> Input.text [ Input.id row.id, Input.value value ]
-            TextRow -> Textarea.textarea [ Textarea.id row.id, Textarea.value value ]
+            StringRow -> Input.text [ Input.id row.id, Input.value row.value ]
+            TextRow -> Textarea.textarea [ Textarea.id row.id, Textarea.value row.value ]
         , Form.help [] [ text (toString row.rowType) ]
         ]
       ]

@@ -8,4 +8,4 @@ chronic npm run sass
 
 go build ./tools/hasher/ && ./hasher
 
-go build -o gin-bin
+go build -o gin-bin ./server
