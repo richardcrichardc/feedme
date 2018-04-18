@@ -35,8 +35,12 @@ func EditFormText(id, label, value string) EditFormRow {
   return MakeRow(defn)
 }
 
-func EditFormGap() EditFormRow {
-  defn := struct {Type string}{"GAP"}
+func EditFormGroup(label string, rows []EditFormRow) EditFormRow {
+  defn := struct {
+    Type, Label string
+    Rows []EditFormRow
+  }{"GROUP", label, rows}
+
   return MakeRow(defn)
 }
 

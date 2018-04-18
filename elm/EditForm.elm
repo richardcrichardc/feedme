@@ -8,9 +8,11 @@ import Dict
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
+import Bootstrap.Grid.Row as Row
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
+import Bootstrap.Utilities.Spacing as Spacing
 
 import Scroll
 
@@ -40,15 +42,15 @@ type alias Model =
   , rows : List Row
   }
 
-type alias Row =
-  { rowType : RowType
-  , id : String
+type Row = StringRow BasicRowData
+         | TextRow BasicRowData
+         | Group String (List Row)
+
+type alias BasicRowData =
+  { id : String
   , label : String
   , value : String
   }
-
-type RowType = StringRow
-             | TextRow
 
 decodeModel : Decoder Model
 decodeModel = Decode.map2 Model
@@ -57,24 +59,27 @@ decodeModel = Decode.map2 Model
 
 decodeRow : Decoder Row
 decodeRow =
-  Decode.map4 Row
-    (field "Type" decodeRowType)
-    (field "Id" string)
-    (field "Label" string)
-    (field "Value" string)
-
-decodeRowType : Decoder RowType
-decodeRowType =
-  string
+  (field "Type" string)
     |> Decode.andThen (\str ->
         case str of
           "STRING" ->
-            Decode.succeed StringRow
+            Decode.map StringRow decodeBasicRowData
           "TEXT" ->
-            Decode.succeed TextRow
+            Decode.map TextRow decodeBasicRowData
+          "GROUP" ->
+            Decode.map2 Group
+              (field "Label" string)
+              (field "Rows" (list decodeRow))
           somethingElse ->
             Decode.fail <| "Unknown type: " ++ somethingElse
     )
+
+decodeBasicRowData : Decoder BasicRowData
+decodeBasicRowData =
+  Decode.map3 BasicRowData
+    (field "Id" string)
+    (field "Label" string)
+    (field "Value" string)
 
 
 -- UPDATE
@@ -102,13 +107,25 @@ view maybeModel =
 
 rowView : Row -> Html Msg
 rowView row =
-    Form.row []
-      [ Form.colLabel [ Col.sm2, Col.attrs [for row.id] ] [ text row.label]
-      , Form.col [ Col.sm10 ]
-        [ case row.rowType of
-            StringRow -> Input.text [ Input.id row.id, Input.value row.value ]
-            TextRow -> Textarea.textarea [ Textarea.id row.id, Textarea.value row.value ]
-        , Form.help [] [ text (toString row.rowType) ]
-        ]
+    case row of
+      StringRow rowData ->
+        rowRow (rowHeadView rowData) (stringRowView rowData) rowData
+      TextRow rowData ->
+        rowRow (rowHeadView rowData) (textRowView rowData) rowData
+      Group label rows ->
+        Grid.row [ Row.attrs [ Spacing.mb4 ]]
+          [ Grid.col [ Col.sm12 ] (List.map rowView rows) ]
+
+rowRow left right row =
+  Form.row []
+    [ left
+    , Form.col [ Col.sm9 ]
+      [ right
+      --, Form.help [] [ text (toString row) ]
       ]
+    ]
+
+rowHeadView data = Form.colLabel [ Col.sm3, Col.attrs [for data.id] ] [ text data.label]
+stringRowView data = Input.text [ Input.id data.id, Input.value data.value ]
+textRowView data = Textarea.textarea [ Textarea.id data.id, Textarea.value data.value ]
 
