@@ -12,6 +12,7 @@ import Bootstrap.Grid.Row as Row
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
+import Bootstrap.Button as Button
 import Bootstrap.Utilities.Spacing as Spacing
 
 import Scroll
@@ -102,8 +103,11 @@ view maybeModel =
     Ok model ->
       Grid.container []
         [ h1 [] [ text ("EditForm: " ++ model.what) ]
-        , Form.form [] (List.map rowView model.rows)
+        , Form.form [] ((List.map rowView model.rows) ++ [(buttonView model)])
         ]
+
+leftSize = Col.sm3
+rightSize = Col.sm9
 
 rowView : Row -> Html Msg
 rowView row =
@@ -119,13 +123,24 @@ rowView row =
 rowRow left right row =
   Form.row []
     [ left
-    , Form.col [ Col.sm9 ]
+    , Form.col [ rightSize ]
       [ right
       --, Form.help [] [ text (toString row) ]
       ]
     ]
 
-rowHeadView data = Form.colLabel [ Col.sm3, Col.attrs [for data.id] ] [ text data.label]
+rowHeadView data = Form.colLabel [ leftSize, Col.attrs [for data.id] ] [ text data.label]
 stringRowView data = Input.text [ Input.id data.id, Input.value data.value ]
 textRowView data = Textarea.textarea [ Textarea.id data.id, Textarea.value data.value ]
+
+buttonView : Model -> Html Msg
+buttonView model =
+  Form.row []
+    [ Form.col [ leftSize ] []
+    , Form.col [ rightSize ]
+      [ Button.button [ Button.primary ] [ text "Cancel" ]
+      , Button.button [ Button.primary, Button.attrs [ Spacing.ml1 ]] [ text "Save" ]
+      ]
+    ]
+
 

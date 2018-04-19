@@ -64,7 +64,7 @@ func (f *EditRestaurantForm) Layout() EditFormSpec {
         EditFormString("Phone", "Phone", f.restaurant.Phone)}),
       EditFormGroup("", []EditFormRow{
         EditFormString("MapLocation", "Map Location", f.restaurant.MapLocation),
-      EditFormString("MapZoom", "MapZoom", f.restaurant.MapZoom)}),
+      EditFormString("MapZoom", "Map Zoom", f.restaurant.MapZoom)}),
       EditFormGroup("", []EditFormRow{
         EditFormText("About", "About", f.restaurant.About)}),
   }}
