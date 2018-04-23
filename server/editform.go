@@ -1,16 +1,17 @@
 package main
 
 import (
-  //"log"
   "net/http"
   "github.com/gorilla/mux"
   "strconv"
   "encoding/json"
+  "fmt"
  )
 
-type EditFormSpec struct {
+type EditFormLayout struct {
   What string
   Rows []EditFormRow
+  Data map[string]string
 }
 
 type EditFormRow []byte
@@ -19,32 +20,66 @@ func (r EditFormRow) MarshalJSON() ([]byte, error){
   return r, nil
 }
 
-func MakeRow(defn interface{}) EditFormRow {
-  row, err := json.Marshal(defn)
+type EditFormData struct {
+  id, value string
+}
+
+type EditFormRowData struct {
+  row EditFormRow
+  data []EditFormData
+}
+
+func NewEditFormLayout(what string) (f *EditFormLayout) {
+  f = new(EditFormLayout)
+  f.What = what
+  f.Data = make(map[string]string)
+  return f
+}
+
+func (f *EditFormLayout) AddRow(rowData EditFormRowData) {
+  f.Rows = append(f.Rows, rowData.row)
+  for _, d := range rowData.data {
+    f.Data[d.id] = d.value
+  }
+}
+
+func MakeRowData(rowDefn interface{}, data []EditFormData) EditFormRowData {
+  row, err := json.Marshal(rowDefn)
   checkError(err)
-  return row
+  return EditFormRowData{row, data}
 }
 
-func EditFormString(id, label, value string) EditFormRow {
-  defn := struct {Type, Id, Label, Value string}{"STRING", id, label, value}
-  return MakeRow(defn)
+func EditFormString(id, label, value string) EditFormRowData {
+  defn := struct {Type, Id, Label string}{"STRING", id, label}
+  return MakeRowData(defn, []EditFormData{{id, value}})
 }
 
-func EditFormText(id, label, value string) EditFormRow {
-  defn := struct {Type, Id, Label, Value string}{"TEXT", id, label, value}
-  return MakeRow(defn)
+func EditFormText(id, label, value string) EditFormRowData {
+  defn := struct {Type, Id, Label string}{"TEXT", id, label}
+  return MakeRowData(defn, []EditFormData{{id, value}})
 }
 
-func EditFormGroup(label string, rows []EditFormRow) EditFormRow {
+func EditFormGroup(label string, rowData... EditFormRowData) EditFormRowData {
+  var rows []EditFormRow
+  var data []EditFormData
+
+  for _, rowData := range rowData {
+    rows = append(rows, rowData.row)
+    data = append(data, rowData.data...)
+  }
+
   defn := struct {
     Type, Label string
     Rows []EditFormRow
   }{"GROUP", label, rows}
 
-  return MakeRow(defn)
+  return MakeRowData(defn, data)
 }
 
-
+type EditFormSubmission struct {
+  Action string
+  Fields map[string]string
+}
 
 type EditFormErrors map[string][]string
 
@@ -52,8 +87,8 @@ type EditFormErrors map[string][]string
 type Form interface {
   Key(req *http.Request)
   Fetch()
-  Layout() EditFormSpec
-  Validate() EditFormErrors
+  Layout() *EditFormLayout
+  Validate(map[string]string) EditFormErrors
   Save()
 }
 
@@ -68,7 +103,12 @@ func EditFormHandler(form Form) http.Handler {
       formspec := form.Layout()
       elmApp(w, req, "EditForm", formspec)
       return
+
     case "POST":
+      var submission EditFormSubmission
+      err := json.NewDecoder(req.Body).Decode(&submission)
+      checkError(err)
+      fmt.Fprintf(w, "%#v", submission)
 
     default:
       panic(BadRequest("Unexected http method: " + req.Method))

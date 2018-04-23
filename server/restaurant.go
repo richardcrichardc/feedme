@@ -46,32 +46,40 @@ func (f *EditRestaurantForm) Key(req *http.Request) {
 }
 
 func (f *EditRestaurantForm) Fetch() {
-  f.restaurant = fetchRestaurant(f.id)
+  if f.id > 0 {
+    f.restaurant = fetchRestaurant(f.id)
+  } else {
+    f.restaurant = new(Restaurant)
+  }
 }
 
-func (f *EditRestaurantForm) Layout() EditFormSpec {
-  return EditFormSpec{
-    What: "Restaurant",
-    Rows: []EditFormRow{
-      EditFormGroup("", []EditFormRow{
+func (f *EditRestaurantForm) Layout() *EditFormLayout {
+  layout := NewEditFormLayout("Restaurant")
+
+  layout.AddRow(EditFormGroup("",
         EditFormString("Slug", "Slug", f.restaurant.Slug),
-        EditFormString("Name", "Name", f.restaurant.Name)}),
-      EditFormGroup("", []EditFormRow{
+        EditFormString("Name", "Name", f.restaurant.Name)))
+  layout.AddRow(EditFormGroup("",
         EditFormString("Address1", "Address", f.restaurant.Address1),
         EditFormString("Address2", "", f.restaurant.Address2),
-        EditFormString("Town", "Town/City", f.restaurant.Town)}),
-      EditFormGroup("", []EditFormRow{
-        EditFormString("Phone", "Phone", f.restaurant.Phone)}),
-      EditFormGroup("", []EditFormRow{
+        EditFormString("Town", "Town/City", f.restaurant.Town)))
+  layout.AddRow(EditFormGroup("",
+        EditFormString("Phone", "Phone", f.restaurant.Phone)))
+  layout.AddRow(EditFormGroup("",
         EditFormString("MapLocation", "Map Location", f.restaurant.MapLocation),
-      EditFormString("MapZoom", "Map Zoom", f.restaurant.MapZoom)}),
-      EditFormGroup("", []EditFormRow{
-        EditFormText("About", "About", f.restaurant.About)}),
-  }}
+        EditFormString("MapZoom", "Map Zoom", f.restaurant.MapZoom)))
+  layout.AddRow(EditFormGroup("",
+        EditFormText("About", "About", f.restaurant.About)))
+
+  return layout
 }
 
+func (r *EditRestaurantForm) Validate(submission map[string]string) EditFormErrors {
 
-func (r *EditRestaurantForm) Validate() EditFormErrors { return EditFormErrors{} }
+  //f.restaurant.Slug = EditFormRequiredString(submission
+
+  return EditFormErrors{}
+}
 func (r *EditRestaurantForm) Save() {}
 
 
