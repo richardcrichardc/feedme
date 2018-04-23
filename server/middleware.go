@@ -6,9 +6,8 @@ import (
   "net/http"
   "runtime/debug"
   "database/sql"
+  "feedme/server/templates"
 )
-
-type BadRequest string
 
 func recoverMiddleware(next http.Handler) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -20,7 +19,7 @@ func recoverMiddleware(next http.Handler) http.Handler {
         var code int
         var msg string
         switch err.(type) {
-        case BadRequest:
+        case templates.BadRequest:
           code = 400
           msg = "Bad Request"
         default:

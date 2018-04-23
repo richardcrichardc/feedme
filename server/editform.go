@@ -6,6 +6,7 @@ import (
   "strconv"
   "encoding/json"
   "fmt"
+  "feedme/server/templates"
  )
 
 type EditFormLayout struct {
@@ -101,7 +102,7 @@ func EditFormHandler(form Form) http.Handler {
     case "GET":
       form.Fetch()
       formspec := form.Layout()
-      elmApp(w, req, "EditForm", formspec)
+      templates.ElmApp(w, req, "EditForm", formspec)
       return
 
     case "POST":
@@ -111,7 +112,7 @@ func EditFormHandler(form Form) http.Handler {
       fmt.Fprintf(w, "%#v", submission)
 
     default:
-      panic(BadRequest("Unexected http method: " + req.Method))
+      panic(templates.BadRequest("Unexected http method: " + req.Method))
     }
 
   })
@@ -155,7 +156,7 @@ func DecodeId(req *http.Request) int {
   id, err := strconv.Atoi(val)
 
   if err != nil {
-    panic(BadRequest("Expecting 'new' or integer id, received: " + val))
+    panic(templates.BadRequest("Expecting 'new' or integer id, received: " + val))
   }
 
   return id

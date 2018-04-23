@@ -6,6 +6,7 @@ import (
   "github.com/go-http-utils/logger"
   "net/http"
   "os"
+  "feedme/server/templates"
 )
 
 var debugFlag bool
@@ -13,13 +14,12 @@ var debugFlag bool
 func main() {
   debugFlag  = true
 
-  initAssets()
-  initTemplates()
+  templates.Init()
   initDB()
 
   router := mux.NewRouter()
   router.Handle("/admin/restaurants/{id}", EditFormHandler(new(EditRestaurantForm)))
-  router.PathPrefix("/assets/").Handler(assetsHandler())
+  router.PathPrefix("/assets/").Handler(templates.AssetsHandler())
   router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
 
   server := recoverMiddleware(router)
