@@ -7,6 +7,7 @@ import (
   "net/http"
   "os"
   "feedme/server/templates"
+  "feedme/server/editform"
 )
 
 var debugFlag bool
@@ -18,7 +19,7 @@ func main() {
   initDB()
 
   router := mux.NewRouter()
-  router.Handle("/admin/restaurants/{id}", EditFormHandler(new(EditRestaurantForm)))
+  router.Handle("/admin/restaurants/{id}", editform.Handler(NewEditRestaurantForm))
   router.PathPrefix("/assets/").Handler(templates.AssetsHandler())
   router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
 

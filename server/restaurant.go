@@ -1,7 +1,7 @@
 package main
 
 import (
-  "net/http"
+  ef "feedme/server/editform"
 )
 
 type Restaurant struct {
@@ -36,53 +36,50 @@ func fetchRestaurantBySlug(slug string) *Restaurant {
 }
 
 
-type EditRestaurantForm struct {
-  id int
-  restaurant *Restaurant
- }
+type EditRestaurantForm struct {}
 
-func (f *EditRestaurantForm) Key(req *http.Request) {
-  f.id = DecodeId(req)
+func NewEditRestaurantForm() ef.Form {
+  return new(EditRestaurantForm)
 }
 
-func (f *EditRestaurantForm) Fetch() {
-  if f.id > 0 {
-    f.restaurant = fetchRestaurant(f.id)
+func (f *EditRestaurantForm) Fetch(fi *ef.Instance) {
+  if fi.Id > 0 {
+    fi.Data = fetchRestaurant(fi.Id)
   } else {
-    f.restaurant = new(Restaurant)
-  }
+    fi.Data = new(Restaurant)
+  }}
+
+func (f *EditRestaurantForm) Layout(fi *ef.Instance) ef.Layout {
+  return ef.NewLayout("Restaurant",
+      ef.Group("",
+        ef.Text("Slug", "Slug"),
+        ef.Text("Name", "Name")),
+      ef.Group("",
+        ef.Text("Address1", "Address"),
+        ef.Text("Address2", ""),
+        ef.Text("Town", "Town/City")),
+      ef.Group("",
+        ef.Text("Phone", "Phone")),
+      ef.Group("",
+        ef.Text("MapLocation", "Map Location"),
+        ef.Text("MapZoom", "Map Zoom")),
+      ef.Group("",
+        ef.TextArea("About", "About")))
 }
 
-func (f *EditRestaurantForm) Layout() *EditFormLayout {
-  layout := NewEditFormLayout("Restaurant")
-
-  layout.AddRow(EditFormGroup("",
-        EditFormString("Slug", "Slug", f.restaurant.Slug),
-        EditFormString("Name", "Name", f.restaurant.Name)))
-  layout.AddRow(EditFormGroup("",
-        EditFormString("Address1", "Address", f.restaurant.Address1),
-        EditFormString("Address2", "", f.restaurant.Address2),
-        EditFormString("Town", "Town/City", f.restaurant.Town)))
-  layout.AddRow(EditFormGroup("",
-        EditFormString("Phone", "Phone", f.restaurant.Phone)))
-  layout.AddRow(EditFormGroup("",
-        EditFormString("MapLocation", "Map Location", f.restaurant.MapLocation),
-        EditFormString("MapZoom", "Map Zoom", f.restaurant.MapZoom)))
-  layout.AddRow(EditFormGroup("",
-        EditFormText("About", "About", f.restaurant.About)))
-
-  return layout
+func (f *EditRestaurantForm) Validate(fi *ef.Instance) {
+  fi.Validate("Slug", "Slug", ef.Trim, ef.Required)
+  fi.Validate("Name", "Name", ef.Trim, ef.Required)
+  fi.Validate("Address1", "Address", ef.Trim, ef.Required)
+  fi.Validate("Address2", "Address", ef.Trim)
+  fi.Validate("Town", "Town/City", ef.Trim, ef.Required)
+  fi.Validate("Phone", "Phone", ef.Trim, ef.Required)
+  fi.Validate("MapLocation", "Map Location", ef.Trim)
+  fi.Validate("MapZoom", "Map Zoom", ef.Trim)
+  fi.Validate("About", "About", ef.Trim)
 }
 
-func (r *EditRestaurantForm) Validate(submission map[string]string) EditFormErrors {
-
-  //f.restaurant.Slug = EditFormRequiredString(submission
-
-  return EditFormErrors{}
-}
-func (r *EditRestaurantForm) Save() {}
-
-
+func (f *EditRestaurantForm) Save(fi *ef.Instance) {}
 
 
 

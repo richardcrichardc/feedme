@@ -17,6 +17,7 @@ import Bootstrap.Form.Input as Input
 import Bootstrap.Form.Textarea as Textarea
 import Bootstrap.Button as Button
 import Bootstrap.Utilities.Spacing as Spacing
+import Bootstrap.Alert as Alert
 
 import Scroll
 
@@ -49,6 +50,8 @@ type alias Model =
   , what : String
   , rows : List Row
   , fields : Fields
+  , error : Maybe String
+  , fieldErrors : Dict.Dict String Errors -- TODO move into fields.errors
   }
 
 type Row = StringRow BasicRowData
@@ -58,6 +61,7 @@ type Row = StringRow BasicRowData
 type alias BasicRowData =
   { id : String
   , label : String
+  , help : String
   }
 
 type alias Fields = Dict.Dict String Field
@@ -68,21 +72,25 @@ type alias Field =
   , errors : List String
   }
 
+type alias Errors = List String
+
 decodeModel : Decoder Model
-decodeModel = Decode.map4 Model
+decodeModel = Decode.map6 Model
     (Decode.succeed "")
     (field "What" string)
     (field "Rows" (list decodeRow))
     (field "Data" (dict decodeField))
+    (Decode.succeed Nothing)
+    (Decode.succeed Dict.empty)
 
 decodeRow : Decoder Row
 decodeRow =
   (field "Type" string)
     |> Decode.andThen (\str ->
         case str of
-          "STRING" ->
-            Decode.map StringRow decodeBasicRowData
           "TEXT" ->
+            Decode.map StringRow decodeBasicRowData
+          "TEXTAREA" ->
             Decode.map TextRow decodeBasicRowData
           "GROUP" ->
             Decode.map2 Group
@@ -94,10 +102,10 @@ decodeRow =
 
 decodeBasicRowData : Decoder BasicRowData
 decodeBasicRowData =
-  Decode.map2 BasicRowData
+  Decode.map3 BasicRowData
     (field "Id" string)
     (field "Label" string)
-
+    (Decode.succeed "")
 
 decodeField : Decoder Field
 decodeField =
@@ -114,27 +122,44 @@ type Msg
   | Cancel
   | UpdateField String String
   | BlurField
-  | Validation (Result Http.Error String)
+  | Validation (Result Http.Error PostResponse)
 
 update : Msg -> ResultModel -> (ResultModel, Cmd Msg)
 update msg resultModel =
   case resultModel of
     Err x -> (resultModel, Cmd.none)
     Ok model ->
-      case msg of
-        NewLocation menuMsg -> (Ok model, Cmd.none)
-        Cancel -> (Ok model, Cmd.none)
-        Save -> (Ok model, Cmd.none)
+      let (newModel, cmd) =
+        case msg of
+          NewLocation menuMsg -> (model, Cmd.none)
+          Cancel -> (model, Cmd.none)
+          Save -> (model, Cmd.none)
 
-        UpdateField name newValue ->
-          (Ok { model
-              | fields = Dict.update name (updateFieldValue newValue) model.fields
-              }, Cmd.none)
+          UpdateField name newValue ->
+            ({ model |
+               fields = Dict.update name (updateFieldValue newValue) model.fields}
+            , Cmd.none)
 
-        BlurField -> (Ok model, post model.url "validate" model.fields)
+          BlurField -> (model, post model.url "validate" model.fields)
 
-        Validation (Ok s) -> (Ok model, Cmd.none)
-        Validation (Err e) -> (Ok model, Cmd.none)
+          Validation result -> validationUpdate result model
+      in
+        (Ok newModel, cmd)
+
+validationUpdate : Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
+validationUpdate result model =
+  case result of
+    Ok Okay ->
+        (model, Cmd.none)
+    Ok (Errors newErrors) ->
+        ({ model | fieldErrors = newErrors }, Cmd.none)
+    Ok (BadStatus status) ->
+        ({ model | error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
+        , Cmd.none)
+    Err e ->
+        ({ model | error = Just (toString e) }  -- TODO humanise this error message
+        , Cmd.none)
+
 
 updateFieldValue : String -> Maybe Field -> Maybe Field
 updateFieldValue newValue field =
@@ -161,7 +186,21 @@ post url action fields =
                   ]
   in
     Http.send Validation <|
-      Http.post url body string
+      Http.post url body decodePostResponse
+
+type PostResponse = Errors (Dict.Dict String Errors)
+                  | Okay
+                  | BadStatus String
+
+decodePostResponse : Decoder PostResponse
+decodePostResponse =
+  (field "Status" string)
+    |> Decode.andThen (\str ->
+      case str of
+        "OK" -> Decode.succeed Okay
+        "ERRORS" -> Decode.map Errors (field "Errors" (dict (list string)))
+        _ -> Decode.succeed (BadStatus str)
+    )
 
 
 -- VIEW
@@ -174,7 +213,9 @@ view maybeModel =
     Ok model ->
       Grid.container []
         [ h1 [] [ text ("EditForm: " ++ model.what) ]
-        , p [] [ text("Url: " ++ model.url) ]
+        , case model.error of
+            Nothing -> text ""
+            Just err -> Alert.simpleDanger [] [ text err ]
         , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
         , pre [] [ text (toString model.fields) ]
         ]
@@ -185,43 +226,54 @@ rightSize = Col.sm9
 rowView : Model -> Row -> Html Msg
 rowView model row =
   case row of
-    StringRow rowData ->
-      rowRow (rowHeadView rowData) (stringRowView rowData model.fields) rowData
-    TextRow rowData ->
-      rowRow (rowHeadView rowData) (textRowView rowData model.fields) rowData
+    StringRow data ->
+      inputRowView model textInputView data
+    TextRow data ->
+      inputRowView model textareaInputView data
     Group label rows ->
       Grid.row [ Row.attrs [ Spacing.mb4 ]]
         [ Grid.col [ Col.sm12 ] (List.map (rowView model) rows) ]
 
-rowRow left right row =
-  Form.row []
-    [ left
-    , Form.col [ rightSize ]
-      [ right
-      --, Form.help [] [ text (toString row) ]
-      ]
-    ]
+inputRowView model inputView data =
+  let
+    errors = Dict.get data.id model.fieldErrors
+    errorList = case errors of
+      Nothing -> []
+      Just errorList -> errorList
+    errorsHtml = [ Form.invalidFeedback [] (List.map text errorList) ]
 
-rowHeadView : BasicRowData -> Form.Col Msg
-rowHeadView data = Form.colLabel [ leftSize, Col.attrs [Html.Attributes.for data.id] ] [ text data.label]
+    danger = errorList /= []
+    inputHtml = [ inputView data model.fields danger ]
+    helpHtml = if data.help /= "" then [Form.help [] [ text data.help ]] else []
+  in
+    Form.row []
+        [ Form.colLabel [ leftSize, Col.attrs [Html.Attributes.for data.id] ] [ text data.label]
+        , Form.col [ rightSize ] (inputHtml ++ errorsHtml ++ helpHtml)
+        ]
 
-stringRowView : BasicRowData -> Fields -> Html Msg
-stringRowView data fields =
-  Input.text
-    [ Input.id data.id
-    , Input.onInput (UpdateField data.id)
-    , Input.attrs [ Html.Events.onBlur BlurField ]
-    , Input.value (getFieldValue fields data.id)
-    ]
+textInputView : BasicRowData -> Fields -> Bool -> Html Msg
+textInputView data fields danger =
+  let
+    dangerAttr = if danger then [ Input.danger ] else []
+  in
+    Input.text
+      ([ Input.id data.id
+       , Input.onInput (UpdateField data.id)
+       , Input.attrs [ Html.Events.onBlur BlurField ]
+       , Input.value (getFieldValue fields data.id)
+       ] ++ dangerAttr)
 
-textRowView : BasicRowData -> Fields -> Html Msg
-textRowView data fields =
-  Textarea.textarea
-    [ Textarea.id data.id
-    , Textarea.onInput (UpdateField data.id)
-    , Textarea.attrs [ Html.Events.onBlur BlurField ]
-    , Textarea.value (getFieldValue fields data.id)
-    ]
+textareaInputView : BasicRowData -> Fields -> Bool -> Html Msg
+textareaInputView data fields danger =
+  let
+    dangerAttr = if danger then [ Textarea.danger ] else []
+  in
+    Textarea.textarea
+      ([ Textarea.id data.id
+       , Textarea.onInput (UpdateField data.id)
+       , Textarea.attrs [ Html.Events.onBlur BlurField ]
+       , Textarea.value (getFieldValue fields data.id)
+       ] ++ dangerAttr)
 
 getFieldValue : Fields -> String -> String
 getFieldValue fields id =
