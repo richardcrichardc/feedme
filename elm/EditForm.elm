@@ -51,7 +51,6 @@ type alias Model =
   , rows : List Row
   , fields : Fields
   , error : Maybe String
-  , fieldErrors : Dict.Dict String Errors -- TODO move into fields.errors
   }
 
 type Row = StringRow BasicRowData
@@ -75,13 +74,12 @@ type alias Field =
 type alias Errors = List String
 
 decodeModel : Decoder Model
-decodeModel = Decode.map6 Model
+decodeModel = Decode.map5 Model
     (Decode.succeed "")
     (field "What" string)
     (field "Rows" (list decodeRow))
     (field "Data" (dict decodeField))
     (Decode.succeed Nothing)
-    (Decode.succeed Dict.empty)
 
 decodeRow : Decoder Row
 decodeRow =
@@ -150,9 +148,9 @@ validationUpdate : Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
 validationUpdate result model =
   case result of
     Ok Okay ->
-        (model, Cmd.none)
-    Ok (Errors newErrors) ->
-        ({ model | fieldErrors = newErrors }, Cmd.none)
+        ({ model | fields = mergeErrors Dict.empty model.fields }, Cmd.none)
+    Ok (Errors errors) ->
+        ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
     Ok (BadStatus status) ->
         ({ model | error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
         , Cmd.none)
@@ -202,6 +200,16 @@ decodePostResponse =
         _ -> Decode.succeed (BadStatus str)
     )
 
+type alias ErrorsDict = Dict.Dict String Errors
+
+mergeErrors : ErrorsDict -> Fields -> Fields
+mergeErrors errors fields =
+  let
+    leftStep k a f = f
+    bothStep k a b f = Dict.insert k { b | errors = a } f
+    rightStep k b f = Dict.insert k { b | errors = [] } f
+  in
+    Dict.merge leftStep bothStep rightStep errors fields Dict.empty
 
 -- VIEW
 
@@ -217,7 +225,7 @@ view maybeModel =
             Nothing -> text ""
             Just err -> Alert.simpleDanger [] [ text err ]
         , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
-        , pre [] [ text (toString model.fields) ]
+        , p [] [ text (toString (Dict.get "Town" model.fields)) ]
         ]
 
 leftSize = Col.sm3
@@ -234,16 +242,18 @@ rowView model row =
       Grid.row [ Row.attrs [ Spacing.mb4 ]]
         [ Grid.col [ Col.sm12 ] (List.map (rowView model) rows) ]
 
+
+inputRowView : Model -> (BasicRowData -> Maybe Field -> Bool -> Html Msg) -> BasicRowData -> Html Msg
 inputRowView model inputView data =
   let
-    errors = Dict.get data.id model.fieldErrors
-    errorList = case errors of
-      Nothing -> []
-      Just errorList -> errorList
+    field = Dict.get data.id model.fields
+    errorList = case field of
+      Nothing -> ["MISSING"]
+      Just field -> field.errors
     errorsHtml = [ Form.invalidFeedback [] (List.map text errorList) ]
 
     danger = errorList /= []
-    inputHtml = [ inputView data model.fields danger ]
+    inputHtml = [ inputView data field danger ]
     helpHtml = if data.help /= "" then [Form.help [] [ text data.help ]] else []
   in
     Form.row []
@@ -251,8 +261,8 @@ inputRowView model inputView data =
         , Form.col [ rightSize ] (inputHtml ++ errorsHtml ++ helpHtml)
         ]
 
-textInputView : BasicRowData -> Fields -> Bool -> Html Msg
-textInputView data fields danger =
+textInputView : BasicRowData -> Maybe Field -> Bool -> Html Msg
+textInputView data field danger =
   let
     dangerAttr = if danger then [ Input.danger ] else []
   in
@@ -260,11 +270,11 @@ textInputView data fields danger =
       ([ Input.id data.id
        , Input.onInput (UpdateField data.id)
        , Input.attrs [ Html.Events.onBlur BlurField ]
-       , Input.value (getFieldValue fields data.id)
+       , Input.value (fieldValue field)
        ] ++ dangerAttr)
 
-textareaInputView : BasicRowData -> Fields -> Bool -> Html Msg
-textareaInputView data fields danger =
+textareaInputView : BasicRowData -> Maybe Field -> Bool -> Html Msg
+textareaInputView data field danger =
   let
     dangerAttr = if danger then [ Textarea.danger ] else []
   in
@@ -272,14 +282,15 @@ textareaInputView data fields danger =
       ([ Textarea.id data.id
        , Textarea.onInput (UpdateField data.id)
        , Textarea.attrs [ Html.Events.onBlur BlurField ]
-       , Textarea.value (getFieldValue fields data.id)
+       , Textarea.value (fieldValue field)
        ] ++ dangerAttr)
 
-getFieldValue : Fields -> String -> String
-getFieldValue fields id =
-  case Dict.get id fields of
+fieldValue : Maybe Field -> String
+fieldValue field =
+  case field of
     Just field -> field.value
     Nothing -> "MISSING"
+
 
 
 buttonView : Model -> Html Msg
