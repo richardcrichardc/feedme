@@ -13,7 +13,8 @@ import (
  )
 
 type Form interface {
-  Fetch(*Instance)
+  New() interface{}
+  Fetch(id int) interface{}
   Layout(*Instance) Layout
   Validate(*Instance)
   Save(*Instance)
@@ -40,13 +41,18 @@ func Handler(factory FormFactory) http.Handler {
 
     switch req.Method {
     case "GET":
-      f.Fetch(fi)
+      if fi.Id == 0 {
+        fi.Data = f.New()
+      } else {
+        fi.Data = f.Fetch(fi.Id)
+      }
+
       layout := f.Layout(fi)
 
       // Retrieve data for fields specified in layout
       //fmt.Fprintf(w, "FI %#v\n", fi)
       for _, row := range layout.Rows {
-        row.AddData(fi.Data, layout.Data)
+        row.addData(fi.Data, layout.Data)
       }
 
       templates.ElmApp(w, req, "EditForm", layout)
@@ -64,12 +70,22 @@ func Handler(factory FormFactory) http.Handler {
       }
 
       fi.Submission = sub.Fields
+      fi.Data = f.New()
       fi.Errors = make(map[string][]string)
       f.Validate(fi)
       if fi.HasErrors() {
         json.NewEncoder(w).Encode(SubmissionResult{"ERRORS", fi.Errors})
-      } else {
-        json.NewEncoder(w).Encode(SubmissionResult{"OK", fi.Errors})
+        return
+      }
+
+      switch sub.Action {
+      case "VALIDATE":
+        json.NewEncoder(w).Encode(SubmissionResult{"OK", nil})
+      case "SAVE":
+        f.Save(fi)
+        json.NewEncoder(w).Encode(SubmissionResult{"SAVED", nil})
+      default:
+        panic(templates.BadRequest("Unknown action: " + sub.Action))
       }
 
     default:
@@ -97,16 +113,17 @@ func getId(req *http.Request) int {
 
 type Layout struct {
   What string
+  CancelUrl, SavedUrl string
   Rows []Row
   Data map[string]string
 }
 
 type Row interface {
-  AddData(interface{}, map[string]string)
+  addData(interface{}, map[string]string)
 }
 
-func NewLayout(what string, rows ...Row) Layout {
-  return Layout{what, rows, map[string]string{}}
+func NewLayout(what, cancelUrl, savedUrl string, rows ...Row) Layout {
+  return Layout{what, cancelUrl, savedUrl, rows, map[string]string{}}
 }
 
 
@@ -119,9 +136,9 @@ type GroupRow struct {
   Rows []Row
 }
 
-func (t GroupRow) AddData(instData interface{}, layoutData map[string]string) {
+func (t GroupRow) addData(instData interface{}, layoutData map[string]string) {
   for _, row := range t.Rows {
-    row.AddData(instData, layoutData)
+    row.addData(instData, layoutData)
   }
 }
 
@@ -147,11 +164,11 @@ type FieldRow struct {
   Type, Id, Label string
 }
 
-func (f FieldRow) AddData(instData interface{}, layoutData map[string]string) {
+func (f FieldRow) addData(instData interface{}, layoutData map[string]string) {
   field := reflect.Indirect(reflect.ValueOf(instData)).FieldByName(f.Id)
 
   if !field.IsValid() {
-    log.Panicf("EditForm: Instance data is missing field '%s'", f.Id)
+    log.Panicf("editForm.Layout: Instance data is missing field '%s'", f.Id)
   }
 
   layoutData[f.Id] = field.Interface().(string)
@@ -171,7 +188,13 @@ func (fi *Instance) Validate(id, label string, validators ...Validator) {
     }
   }
 
-  //fi.Data.Id = value
+  field := reflect.Indirect(reflect.ValueOf(fi.Data)).FieldByName(id)
+
+  if !field.IsValid() {
+    log.Panicf("editform.Validate: Instance data is missing field '%s'", id)
+  }
+
+  field.Set(reflect.ValueOf(value))
 }
 
 

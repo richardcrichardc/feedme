@@ -47,6 +47,8 @@ type alias ResultModel = Result String Model
 
 type alias Model =
   { url: String
+  , cancelUrl : String
+  , savedUrl : String
   , what : String
   , rows : List Row
   , fields : Fields
@@ -66,16 +68,17 @@ type alias BasicRowData =
 type alias Fields = Dict.Dict String Field
 
 type alias Field =
-  { pristine : Bool
-  , value : String
+  { value : String
   , errors : List String
   }
 
 type alias Errors = List String
 
 decodeModel : Decoder Model
-decodeModel = Decode.map5 Model
+decodeModel = Decode.map7 Model
     (Decode.succeed "")
+    (field "CancelUrl" string)
+    (field "SavedUrl" string)
     (field "What" string)
     (field "Rows" (list decodeRow))
     (field "Data" (dict decodeField))
@@ -109,17 +112,17 @@ decodeField : Decoder Field
 decodeField =
   string
     |> Decode.andThen (\value ->
-        Decode.succeed (Field False value [])
+        Decode.succeed (Field value [])
     )
 
 -- UPDATE
 
 type Msg
   = NewLocation Navigation.Location
-  | Save
-  | Cancel
   | UpdateField String String
   | BlurField
+  | Save
+  | Cancel
   | Validation (Result Http.Error PostResponse)
 
 update : Msg -> ResultModel -> (ResultModel, Cmd Msg)
@@ -130,17 +133,14 @@ update msg resultModel =
       let (newModel, cmd) =
         case msg of
           NewLocation menuMsg -> (model, Cmd.none)
-          Cancel -> (model, Cmd.none)
-          Save -> (model, Cmd.none)
-
           UpdateField name newValue ->
             ({ model |
                fields = Dict.update name (updateFieldValue newValue) model.fields}
             , Cmd.none)
-
-          BlurField -> (model, post model.url "validate" model.fields)
-
+          BlurField -> (model, post model.url "VALIDATE" model.fields)
           Validation result -> validationUpdate result model
+          Cancel -> (model, Navigation.load model.cancelUrl)
+          Save -> (model, post model.url "SAVE" model.fields)
       in
         (Ok newModel, cmd)
 
@@ -151,6 +151,8 @@ validationUpdate result model =
         ({ model | fields = mergeErrors Dict.empty model.fields }, Cmd.none)
     Ok (Errors errors) ->
         ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
+    Ok Saved ->
+        ({ model | fields = mergeErrors Dict.empty model.fields }, Navigation.load model.savedUrl)
     Ok (BadStatus status) ->
         ({ model | error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
         , Cmd.none)
@@ -162,11 +164,7 @@ validationUpdate result model =
 updateFieldValue : String -> Maybe Field -> Maybe Field
 updateFieldValue newValue field =
   case field of
-    Just field ->
-      Just { field
-           | pristine = False
-           , value = newValue
-           }
+    Just field -> Just { field | value = newValue }
     Nothing -> Nothing
 
 
@@ -188,6 +186,7 @@ post url action fields =
 
 type PostResponse = Errors (Dict.Dict String Errors)
                   | Okay
+                  | Saved
                   | BadStatus String
 
 decodePostResponse : Decoder PostResponse
@@ -197,6 +196,7 @@ decodePostResponse =
       case str of
         "OK" -> Decode.succeed Okay
         "ERRORS" -> Decode.map Errors (field "Errors" (dict (list string)))
+        "SAVED" -> Decode.succeed Saved
         _ -> Decode.succeed (BadStatus str)
     )
 
@@ -295,12 +295,20 @@ fieldValue field =
 
 buttonView : Model -> Html Msg
 buttonView model =
-  Form.row []
-    [ Form.col [ leftSize ] []
-    , Form.col [ rightSize ]
-      [ Button.button [ Button.primary, Button.onClick Cancel ] [ text "Cancel" ]
-      , Button.button [ Button.primary, Button.attrs [ Spacing.ml1 ], Button.onClick Save ] [ text "Save" ]
+  let
+    hasError _ field acc = acc || not (List.isEmpty field.errors)
+    saveDisabled = Dict.foldl hasError False model.fields
+  in
+    Form.row []
+      [ Form.col [ leftSize ] []
+      , Form.col [ rightSize ]
+        [ Button.button
+           [ Button.primary, Button.onClick Cancel ]
+           [ text "Cancel" ]
+        , Button.button
+           [ Button.primary, Button.attrs [ Spacing.ml1 ], Button.disabled saveDisabled, Button.onClick Save ]
+           [ text "Save" ]
+        ]
       ]
-    ]
 
 

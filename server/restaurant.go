@@ -38,19 +38,39 @@ func fetchRestaurantBySlug(slug string) *Restaurant {
 
 type EditRestaurantForm struct {}
 
+func EditRestaurantFormCols() []string {
+  return []string{
+    "Slug",
+    "Name",
+    "Address1",
+    "Address2",
+    "Town",
+    "Phone",
+    "MapLocation",
+    "MapZoom",
+    "About",
+  }
+}
+
 func NewEditRestaurantForm() ef.Form {
   return new(EditRestaurantForm)
 }
 
-func (f *EditRestaurantForm) Fetch(fi *ef.Instance) {
-  if fi.Id > 0 {
-    fi.Data = fetchRestaurant(fi.Id)
-  } else {
-    fi.Data = new(Restaurant)
-  }}
+func (f *EditRestaurantForm) New() interface{} {
+  return new(Restaurant)
+}
+
+func (f *EditRestaurantForm) Fetch(id int) interface{} {
+  var restaurant Restaurant
+  checkError(dbFetch("restaurants", "id", id, EditRestaurantFormCols(), &restaurant))
+  return restaurant
+}
 
 func (f *EditRestaurantForm) Layout(fi *ef.Instance) ef.Layout {
-  return ef.NewLayout("Restaurant",
+  return ef.NewLayout(
+      "Restaurant",
+      "/admin/restaurants",
+      "/admin/restaurants",
       ef.Group("",
         ef.Text("Slug", "Slug"),
         ef.Text("Name", "Name")),
@@ -79,7 +99,9 @@ func (f *EditRestaurantForm) Validate(fi *ef.Instance) {
   fi.Validate("About", "About", ef.Trim)
 }
 
-func (f *EditRestaurantForm) Save(fi *ef.Instance) {}
+func (f *EditRestaurantForm) Save(fi *ef.Instance) {
+  checkError(dbUpsert("restaurants", fi.Id, EditRestaurantFormCols(), fi.Data))
+}
 
 
 
