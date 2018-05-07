@@ -10,6 +10,7 @@ import (
   "reflect"
   "log"
   "strings"
+  "time"
  )
 
 type Form interface {
@@ -82,6 +83,8 @@ func Handler(factory FormFactory) http.Handler {
       case "VALIDATE":
         json.NewEncoder(w).Encode(SubmissionResult{"OK", nil})
       case "SAVE":
+        time.Sleep(1*time.Second) // TODO remove me
+
         f.Save(fi)
         json.NewEncoder(w).Encode(SubmissionResult{"SAVED", nil})
       default:

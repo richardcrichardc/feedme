@@ -53,6 +53,7 @@ type alias Model =
   , rows : List Row
   , fields : Fields
   , error : Maybe String
+  , saving : Bool
   }
 
 type Row = StringRow BasicRowData
@@ -75,7 +76,7 @@ type alias Field =
 type alias Errors = List String
 
 decodeModel : Decoder Model
-decodeModel = Decode.map7 Model
+decodeModel = Decode.map8 Model
     (Decode.succeed "")
     (field "CancelUrl" string)
     (field "SavedUrl" string)
@@ -83,6 +84,7 @@ decodeModel = Decode.map7 Model
     (field "Rows" (list decodeRow))
     (field "Data" (dict decodeField))
     (Decode.succeed Nothing)
+    (Decode.succeed False)
 
 decodeRow : Decoder Row
 decodeRow =
@@ -140,25 +142,31 @@ update msg resultModel =
           BlurField -> (model, post model.url "VALIDATE" model.fields)
           Validation result -> validationUpdate result model
           Cancel -> (model, Navigation.load model.cancelUrl)
-          Save -> (model, post model.url "SAVE" model.fields)
+          Save -> ({ model |
+                     saving = True }
+                  , post model.url "SAVE" model.fields)
       in
         (Ok newModel, cmd)
 
 validationUpdate : Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
-validationUpdate result model =
-  case result of
-    Ok Okay ->
-        ({ model | fields = mergeErrors Dict.empty model.fields }, Cmd.none)
-    Ok (Errors errors) ->
-        ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
-    Ok Saved ->
-        ({ model | fields = mergeErrors Dict.empty model.fields }, Navigation.load model.savedUrl)
-    Ok (BadStatus status) ->
-        ({ model | error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
-        , Cmd.none)
-    Err e ->
-        ({ model | error = Just (toString e) }  -- TODO humanise this error message
-        , Cmd.none)
+validationUpdate result savingModel =
+  let
+    model = { savingModel | saving = False}
+  in
+    case result of
+      Ok Okay ->
+          ({ model | fields = mergeErrors Dict.empty model.fields }, Cmd.none)
+      Ok (Errors errors) ->
+          ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
+      Ok Saved ->
+          ({ model | fields = mergeErrors Dict.empty model.fields }, Navigation.load model.savedUrl)
+      Ok (BadStatus status) ->
+          ({ model |
+             error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
+          , Cmd.none)
+      Err e ->
+          ({ model | error = Just (toString e) }  -- TODO humanise this error message
+          , Cmd.none)
 
 
 updateFieldValue : String -> Maybe Field -> Maybe Field
@@ -296,18 +304,25 @@ fieldValue field =
 buttonView : Model -> Html Msg
 buttonView model =
   let
-    hasError _ field acc = acc || not (List.isEmpty field.errors)
-    saveDisabled = Dict.foldl hasError False model.fields
+    fieldHasError _ field acc = acc || not (List.isEmpty field.errors)
+    formHasError = Dict.foldl fieldHasError False model.fields
+    saveDisabled = model.saving || formHasError
+    saveHtml = if model.saving then
+                    [ text "Saving "
+                    , img [ Html.Attributes.class "spinner", Html.Attributes.src "/assets/save-spinner-ba4f7d.gif" ] []
+                    ]
+                  else
+                    [ text "Save" ]
   in
     Form.row []
       [ Form.col [ leftSize ] []
       , Form.col [ rightSize ]
         [ Button.button
-           [ Button.primary, Button.onClick Cancel ]
+           [ Button.primary, Button.disabled model.saving, Button.onClick Cancel ]
            [ text "Cancel" ]
         , Button.button
            [ Button.primary, Button.attrs [ Spacing.ml1 ], Button.disabled saveDisabled, Button.onClick Save ]
-           [ text "Save" ]
+           saveHtml
         ]
       ]
 
