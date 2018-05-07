@@ -233,7 +233,6 @@ view maybeModel =
             Nothing -> text ""
             Just err -> Alert.simpleDanger [] [ text err ]
         , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
-        , p [] [ text (toString (Dict.get "Town" model.fields)) ]
         ]
 
 leftSize = Col.sm3
