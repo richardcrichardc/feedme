@@ -171,7 +171,10 @@ validationUpdate result savingModel =
       Ok (Errors errors) ->
           ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
       Ok Saved ->
-          ({ model | fields = mergeErrors Dict.empty model.fields }, Navigation.load model.savedUrl)
+          ({ model |
+             fields = mergeErrors Dict.empty model.fields,
+             saving = True } -- leave spinner in place until new page is loaded
+          , Navigation.load model.savedUrl)
       Ok (BadStatus status) ->
           ({ model |
              error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
