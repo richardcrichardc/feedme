@@ -2,6 +2,7 @@ module EditForm exposing (..)
 
 import Navigation
 import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, dict, bool)
+import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
 import Json.Encode as Encode
 import Html exposing (..)
 import Html.Attributes
@@ -54,6 +55,7 @@ type alias Model =
   , fields : Fields
   , error : Maybe String
   , saving : Bool
+  , dirty : Bool
   }
 
 type Row = StringRow BasicRowData
@@ -76,15 +78,17 @@ type alias Field =
 type alias Errors = List String
 
 decodeModel : Decoder Model
-decodeModel = Decode.map8 Model
-    (Decode.succeed "")
-    (field "CancelUrl" string)
-    (field "SavedUrl" string)
-    (field "What" string)
-    (field "Rows" (list decodeRow))
-    (field "Data" (dict decodeField))
-    (Decode.succeed Nothing)
-    (Decode.succeed False)
+decodeModel =
+  decode Model
+    |> hardcoded ""
+    |> required "CancelUrl" string
+    |> required "SavedUrl" string
+    |> required "What" string
+    |> required "Rows" (list decodeRow)
+    |> required "Data" (dict decodeField)
+    |> hardcoded Nothing
+    |> hardcoded False
+    |> hardcoded False
 
 decodeRow : Decoder Row
 decodeRow =
@@ -137,9 +141,17 @@ update msg resultModel =
           NewLocation menuMsg -> (model, Cmd.none)
           UpdateField name newValue ->
             ({ model |
-               fields = Dict.update name (updateFieldValue newValue) model.fields}
+               dirty = True,
+               fields = Dict.update name (updateFieldValue newValue) model.fields }
             , Cmd.none)
-          BlurField -> (model, post model.url "VALIDATE" model.fields)
+          BlurField ->
+            ({ model |
+               dirty = False }
+            , if model.dirty then
+                post model.url "VALIDATE" model.fields
+              else
+                Cmd.none
+            )
           Validation result -> validationUpdate result model
           Cancel -> (model, Navigation.load model.cancelUrl)
           Save -> ({ model |
