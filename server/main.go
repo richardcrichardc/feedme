@@ -19,9 +19,13 @@ func main() {
   initDB()
 
   router := mux.NewRouter()
-  router.Handle("/admin/restaurants/{id}", editform.Handler(NewEditRestaurantForm))
-  router.PathPrefix("/assets/").Handler(templates.AssetsHandler())
+
   router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
+
+  router.HandleFunc("/admin/restaurants", getRestaurants).Methods("GET")
+  router.Handle("/admin/restaurants/{id}", editform.Handler(NewEditRestaurantForm))
+
+  router.PathPrefix("/assets/").Handler(templates.AssetsHandler())
 
   server := recoverMiddleware(router)
   server = logger.DefaultHandler(server)

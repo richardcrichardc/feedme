@@ -1,8 +1,11 @@
 package main
 
 import (
+  "net/http"
+  "feedme/server/templates"
   ef "feedme/server/editform"
 )
+
 
 type Restaurant struct {
   Id int
@@ -35,6 +38,21 @@ func fetchRestaurantBySlug(slug string) *Restaurant {
   return &restaurant
 }
 
+// List Restaurants
+
+type RestaurantSummary struct {
+  Id int
+  Slug string
+  Name string
+}
+
+func getRestaurants(w http.ResponseWriter, req *http.Request) {
+  var restaurants []RestaurantSummary
+  checkError(db.Select(&restaurants, "SELECT id, slug, name FROM restaurants ORDER BY name"))
+  templates.ElmApp(w, req, "Restaurants", restaurants)
+}
+
+// Add/Edit Restaurant
 
 type EditRestaurantForm struct {}
 
