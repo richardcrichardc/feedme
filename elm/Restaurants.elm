@@ -1,9 +1,11 @@
 module Restaurants exposing (main)
 
-import Navigation
+import Loader
 import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, int)
 import Html exposing (..)
 import Html.Attributes exposing (href, class)
+import Html.Events exposing (onClick)
+
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Table as Table
@@ -11,21 +13,13 @@ import Bootstrap.Button as Button
 
 
 main =
-  Navigation.programWithFlags
-    NewLocation
-    { init = init
+  Loader.programWithFlags
+    { flagDecoder = decodeModel
     , view = view
     , update = update
-    , subscriptions = always Sub.none
     }
 
-init : Value -> Navigation.Location -> (ResultModel, Cmd Msg)
-init flags location =
-  ( decodeValue decodeModel flags, Cmd.none)
-
 -- MODEL
-
-type alias ResultModel = Result String Model
 
 type alias Model = List Restaurant
 
@@ -47,30 +41,28 @@ decodeRestaurant = Decode.map3 Restaurant
 -- UPDATE
 
 type Msg
-  = NewLocation Navigation.Location
+  = Dup Restaurant
 
-update : Msg -> ResultModel -> (ResultModel, Cmd Msg)
-update msg model = (model, Cmd.none)
-
+update : Msg -> Model -> Loader.Error -> (Model, Loader.Error, Cmd Msg)
+update msg model loaderError =
+  case msg of
+    Dup restaurant ->
+      (model ++ [restaurant], loaderError, Cmd.none)
 
 -- VIEW
 
-view : ResultModel -> Html Msg
-view maybeModel =
-  Grid.container [] (
-    [ h1 [] [ text "Restaurants" ] ] ++
-    case maybeModel of
-      Ok model ->
-        [ p []
-          [ Button.linkButton
-            [ Button.primary, Button.attrs [ href "restaurants/new" ] ]
-            [ text "New" ]
-          ]
-        , tableView model
-        ]
-      Err msg ->
-        [ div [] [ text  ("Load error: " ++ msg) ] ]
-  )
+view : Model -> Html Msg
+view model =
+  Grid.container []
+    [ h1 [] [ text "Restaurants" ]
+    , p []
+      [ Button.linkButton
+        [ Button.primary, Button.attrs [ href "restaurants/new" ] ]
+        [ text "New" ]
+      ]
+    , tableView model
+    ]
+
 
 tableView : Model -> Html Msg
 tableView model =
@@ -92,7 +84,5 @@ rowView restaurant =
     Table.tr []
       [ Table.td [] [ text restaurant.slug ]
       , Table.td [] [ text restaurant.name ]
-      , Table.td []
-          [ a [ href link ] [ text " Edit" ]
-          ]
+      , Table.td [] [ a [ href link ] [ text " Edit" ] ]
       ]

@@ -1,5 +1,6 @@
 module EditForm exposing (..)
 
+import Loader
 import Navigation
 import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, dict, bool)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
@@ -23,28 +24,13 @@ import Bootstrap.Alert as Alert
 import Scroll
 
 main =
-  Navigation.programWithFlags
-    NewLocation
-    { init = init
+  Loader.programWithFlags
+    { flagDecoder = decodeModel
     , view = view
     , update = update
-    , subscriptions = always Sub.none
     }
 
-init : Value -> Navigation.Location -> (ResultModel, Cmd Msg)
-init flags location =
-  let
-    model = decodeValue decodeModel flags
-  in
-    ( case model of
-        Ok model ->
-          Ok { model | url = location.href }
-        Err err -> Err err
-    , Scroll.scrollHash location )
-
 -- MODEL
-
-type alias ResultModel = Result String Model
 
 type alias Model =
   { url: String
@@ -131,56 +117,56 @@ type Msg
   | Cancel
   | Validation (Result Http.Error PostResponse)
 
-update : Msg -> ResultModel -> (ResultModel, Cmd Msg)
-update msg resultModel =
-  case resultModel of
-    Err x -> (resultModel, Cmd.none)
-    Ok model ->
-      let (newModel, cmd) =
-        case msg of
-          NewLocation menuMsg -> (model, Cmd.none)
-          UpdateField name newValue ->
-            ({ model |
-               dirty = True,
-               fields = Dict.update name (updateFieldValue newValue) model.fields }
-            , Cmd.none)
-          BlurField ->
-            ({ model |
-               dirty = False }
-            , if model.dirty then
-                post model.url "VALIDATE" model.fields
-              else
-                Cmd.none
-            )
-          Validation result -> validationUpdate result model
-          Cancel -> (model, Navigation.load model.cancelUrl)
-          Save -> ({ model |
-                     saving = True }
-                  , post model.url "SAVE" model.fields)
-      in
-        (Ok newModel, cmd)
+update : Msg -> Model -> Loader.Error -> (Model, Loader.Error, Cmd Msg)
+update msg model error =
+  case msg of
+    NewLocation menuMsg -> (model, error, Cmd.none)
+    UpdateField name newValue ->
+      ({ model |
+         dirty = True,
+         fields = Dict.update name (updateFieldValue newValue) model.fields }
+      , error
+      , Cmd.none)
+    BlurField ->
+      ({ model |
+         dirty = False }
+      , error
+      , if model.dirty then
+          post model.url "VALIDATE" model.fields
+        else
+          Cmd.none
+      )
+    Validation result -> validationUpdate result model error
+    Cancel -> (model, error, Navigation.load model.cancelUrl)
+    Save -> ({ model |
+               saving = True }
+            , error
+            , post model.url "SAVE" model.fields)
 
-validationUpdate : Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
-validationUpdate result savingModel =
+validationUpdate : Result Http.Error PostResponse -> Model -> Loader.Error -> (Model, Loader.Error, Cmd Msg)
+validationUpdate result savingModel error =
   let
     model = { savingModel | saving = False}
   in
     case result of
       Ok Okay ->
-          ({ model | fields = mergeErrors Dict.empty model.fields }, Cmd.none)
+          ({ model | fields = mergeErrors Dict.empty model.fields }, error, Cmd.none)
       Ok (Errors errors) ->
-          ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
+          ({ model | fields = mergeErrors errors model.fields }, error, Cmd.none)
       Ok Saved ->
           ({ model |
              fields = mergeErrors Dict.empty model.fields,
              saving = True } -- leave spinner in place until new page is loaded
+          , error
           , Navigation.load model.savedUrl)
       Ok (BadStatus status) ->
           ({ model |
              error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
+          , error
           , Cmd.none)
       Err e ->
           ({ model | error = Just (toString e) }  -- TODO humanise this error message
+          , error
           , Cmd.none)
 
 
@@ -236,19 +222,15 @@ mergeErrors errors fields =
 
 -- VIEW
 
-view : ResultModel -> Html Msg
-view maybeModel =
-  case maybeModel of
-    Err msg ->
-      div [] [ text  ("Load error: " ++ msg) ]
-    Ok model ->
-      Grid.container []
-        [ h1 [] [ text ("EditForm: " ++ model.what) ]
-        , case model.error of
-            Nothing -> text ""
-            Just err -> Alert.simpleDanger [] [ text err ]
-        , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
-        ]
+view : Model -> Html Msg
+view model =
+  Grid.container []
+    [ h1 [] [ text ("EditForm: " ++ model.what) ]
+    , case model.error of
+        Nothing -> text ""
+        Just err -> Alert.simpleDanger [] [ text err ]
+    , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
+    ]
 
 leftSize = Col.sm3
 rightSize = Col.sm9
