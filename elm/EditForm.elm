@@ -130,7 +130,7 @@ update msg model error =
     BlurField ->
       ({ model |
          dirty = False }
-      , error
+      , Loader.FlagDecodeError "Oh no" -- error
       , if model.dirty then
           post model.url "VALIDATE" model.fields
         else
