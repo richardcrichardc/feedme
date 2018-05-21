@@ -9,14 +9,16 @@ import Json.Decode exposing (Decoder, Value, decodeValue)
 type Msg pageMsg
   = Refresh
   | ToggleDetails
+  | CustomAction pageMsg
   | PageMsg pageMsg
 
-type Error
+type Error pageMsg
   = NoError
   | FlagDecodeError String
+  | PageError String String pageMsg (Maybe String)
 
-type alias LoaderModel model =
-  { error : Error
+type alias LoaderModel model pageMsg =
+  { error : Error pageMsg
   , showDetails : Bool
   , model : Maybe model
   }
@@ -24,10 +26,10 @@ type alias LoaderModel model =
 
 programWithFlags
   : { flagDecoder : Decoder model
-    , update : pageMsg -> model -> Error -> (model, Error, Cmd pageMsg)
+    , update : pageMsg -> model -> Error pageMsg -> (model, Error pageMsg, Cmd pageMsg)
     , view : model -> Html.Html pageMsg
     }
-  -> Program Value (LoaderModel model) (Msg pageMsg)
+  -> Program Value (LoaderModel model pageMsg) (Msg pageMsg)
 
 programWithFlags spec =
   Html.programWithFlags
@@ -37,7 +39,7 @@ programWithFlags spec =
     , subscriptions = always Sub.none
     }
 
-init : Decoder model -> Value -> (LoaderModel model, Cmd msg)
+init : Decoder model -> Value -> (LoaderModel model pageMsg, Cmd msg)
 init decoder flags =
   case decodeValue decoder flags of
     Ok model ->
@@ -46,10 +48,10 @@ init decoder flags =
       (LoaderModel (FlagDecodeError err) False Nothing, Cmd.none)
 
 update :
-  (pageMsg -> model -> Error -> (model, Error, Cmd pageMsg))
+  (pageMsg -> model -> Error pageMsg -> (model, Error pageMsg, Cmd pageMsg))
   -> Msg pageMsg
-  -> LoaderModel model
-  -> (LoaderModel model, Cmd (Msg pageMsg))
+  -> LoaderModel model pageMsg
+  -> (LoaderModel model pageMsg, Cmd (Msg pageMsg))
 
 update modelUpdate msg loaderModel =
   case msg of
@@ -57,29 +59,44 @@ update modelUpdate msg loaderModel =
       (loaderModel, Navigation.reload)
     ToggleDetails ->
       ({ loaderModel | showDetails = not loaderModel.showDetails }, Cmd.none)
+    CustomAction pageMsg ->
+      let
+        noErrorModel = { loaderModel | error = NoError }
+      in
+        updatePage modelUpdate pageMsg noErrorModel
     PageMsg pageMsg ->
-      case loaderModel.model of
-        Nothing ->
-          (loaderModel, Cmd.none)
-        Just model ->
-          let
-            (modelOut, errorOut, pageMsgOut) = modelUpdate pageMsg model loaderModel.error
-          in
-            ({ loaderModel |
-                model = Just modelOut,
-                error = errorOut }
-            , Cmd.map PageMsg pageMsgOut)
+        updatePage modelUpdate pageMsg loaderModel
 
-view : (model -> Html pageMsg) -> LoaderModel model -> Html (Msg pageMsg)
+updatePage :
+  (pageMsg -> model -> Error pageMsg -> (model, Error pageMsg, Cmd pageMsg))
+  -> pageMsg
+  -> LoaderModel model pageMsg
+  -> (LoaderModel model pageMsg, Cmd (Msg pageMsg))
+
+updatePage modelUpdate pageMsg loaderModel=
+  case loaderModel.model of
+    Nothing ->
+      (loaderModel, Cmd.none)
+    Just model ->
+      let
+        (modelOut, errorOut, pageMsgOut) = modelUpdate pageMsg model loaderModel.error
+      in
+        ({ loaderModel |
+            model = Just modelOut,
+            error = errorOut }
+        , Cmd.map PageMsg pageMsgOut)
+
+
+view : (model -> Html pageMsg) -> LoaderModel model pageMsg -> Html (Msg pageMsg)
 view modelView loaderModel =
   let
     errorHtml =
       case loaderModel.error of
         NoError -> []
-        FlagDecodeError err -> [
-          errorView "Page Load Error" loaderModel.showDetails err
-        ]
-
+        FlagDecodeError err ->
+          [ errorView "Page Load Error" "Reload" Refresh loaderModel.showDetails (Just err) ]
+        PageError title buttonTitle pageMsg details ->
+          [ errorView title buttonTitle (CustomAction pageMsg) loaderModel.showDetails details ]
     mainHtml =
       case loaderModel.model of
         Nothing -> []
@@ -88,8 +105,8 @@ view modelView loaderModel =
   in
     div [] (errorHtml ++ mainHtml)
 
-errorView : String -> Bool -> String -> Html (Msg pageMsg)
-errorView title showDetails details =
+errorView : String -> String -> (Msg pageMsg) -> Bool -> Maybe String -> Html (Msg pageMsg)
+errorView title buttonTitle buttonMsg showDetails details =
   let
     detailButton = if showDetails then
                       "Hide Details"
@@ -98,29 +115,52 @@ errorView title showDetails details =
   in
     div
       [ style
-          [ ("position", "absolute")
+          [ ("all", "initial")
+          , ("position", "fixed")
           , ("top", "0")
           , ("left", "0")
+          , ("bottom", "0")
           , ("right", "0")
           , ("z-index", "1000")
+          , ("font-family", "sans-serif")
           ]
       ]
       [ div
           [ style
-            [ ("background-color", "blue")
-            , ("color", "white")
+            [ ("background-color", "white")
+            , ("color", "black")
+            , ("border", "1px solid black")
+            , ("box-shadow", "0.5em 0.5em 0.5em #ccc")
             , ("padding", "0.5em 1em")
             , ("width", "75%")
-            , ("margin", "4em auto 0 auto")
+            , ("max-width", "600px")
             , ("text-align", "center")
+            , ("position", "relative")
+              -- center in window
+            , ("top", "50%")
+            , ("left", "50%")
+            , ("transform", "translate(-50%, -50%)")
             ]]
-          [ div [ style [ ("margin-bottom", "1em") ]] [ text title ]
+          [ div [ style
+                  [ ("margin-bottom", "1em")
+                  , ("font-weight", "bold")
+                  ]
+                ]
+                [ text title ]
           , p [ ]
-              [ button [ onClick Refresh ] [ text "Reload" ]
+              [ button [ onClick buttonMsg ] [ text buttonTitle ]
               , text " "
-              , button [ onClick ToggleDetails ] [ text detailButton ]
+              , case details of
+                  Nothing ->
+                    text ""
+                  Just details ->
+                    button [ onClick ToggleDetails ] [ text detailButton ]
               ]
-          , detailView showDetails details
+          , case details of
+              Nothing ->
+                text ""
+              Just details ->
+                detailView showDetails details
           ]
       ]
 
@@ -129,10 +169,11 @@ detailView showDetails details =
   if showDetails then
     p
       [ style
-          [ ("background-color", "gray")
+          [ ("background-color", "#ccc")
           , ("padding", "0.5em 1em")
           , ("overflow-wrap", "break-word")
           , ("text-align", "left")
+          , ("font-family", "monospace")
           ]
       ]
       [ text details ]

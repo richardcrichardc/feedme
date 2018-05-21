@@ -115,9 +115,10 @@ type Msg
   | BlurField
   | Save
   | Cancel
-  | Validation (Result Http.Error PostResponse)
+  | Validation String Fields (Result Http.Error PostResponse)
+  | Retry String Fields
 
-update : Msg -> Model -> Loader.Error -> (Model, Loader.Error, Cmd Msg)
+update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
 update msg model error =
   case msg of
     NewLocation menuMsg -> (model, error, Cmd.none)
@@ -130,21 +131,25 @@ update msg model error =
     BlurField ->
       ({ model |
          dirty = False }
-      , Loader.FlagDecodeError "Oh no" -- error
+      , error
       , if model.dirty then
           post model.url "VALIDATE" model.fields
         else
           Cmd.none
       )
-    Validation result -> validationUpdate result model error
+    Validation action fields result -> validationUpdate action fields result model error
     Cancel -> (model, error, Navigation.load model.cancelUrl)
     Save -> ({ model |
                saving = True }
             , error
             , post model.url "SAVE" model.fields)
+    Retry action fields ->
+      (model
+      , error
+      , post model.url action fields)
 
-validationUpdate : Result Http.Error PostResponse -> Model -> Loader.Error -> (Model, Loader.Error, Cmd Msg)
-validationUpdate result savingModel error =
+validationUpdate : String -> Fields -> Result Http.Error PostResponse -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
+validationUpdate action fields result savingModel error =
   let
     model = { savingModel | saving = False}
   in
@@ -165,8 +170,15 @@ validationUpdate result savingModel error =
           , error
           , Cmd.none)
       Err e ->
-          ({ model | error = Just (toString e) }  -- TODO humanise this error message
-          , error
+        let
+          title = case e of
+            Http.NetworkError ->
+              "Network Error"
+            _ -> -- TODO handle other errors
+              "Server Error"
+        in
+          ( model
+          , Loader.PageError title "Retry" (Retry action fields) Nothing
           , Cmd.none)
 
 
@@ -190,7 +202,7 @@ post url action fields =
                   , ("Fields", Encode.object (fieldValues fields))
                   ]
   in
-    Http.send Validation <|
+    Http.send (Validation action fields) <|
       Http.post url body decodePostResponse
 
 type PostResponse = Errors (Dict.Dict String Errors)

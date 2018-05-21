@@ -43,7 +43,7 @@ decodeRestaurant = Decode.map3 Restaurant
 type Msg
   = Dup Restaurant
 
-update : Msg -> Model -> Loader.Error -> (Model, Loader.Error, Cmd Msg)
+update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
 update msg model loaderError =
   case msg of
     Dup restaurant ->
