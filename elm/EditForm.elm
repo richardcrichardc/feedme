@@ -39,7 +39,6 @@ type alias Model =
   , what : String
   , rows : List Row
   , fields : Fields
-  , error : Maybe String
   , saving : Bool
   , dirty : Bool
   }
@@ -72,7 +71,6 @@ decodeModel =
     |> required "What" string
     |> required "Rows" (list decodeRow)
     |> required "Data" (dict decodeField)
-    |> hardcoded Nothing
     |> hardcoded False
     |> hardcoded False
 
@@ -165,9 +163,8 @@ validationUpdate action fields result savingModel error =
           , error
           , Navigation.load model.savedUrl)
       Ok (BadStatus status) ->
-          ({ model |
-             error = Just ("Bad Status: " ++ status) } -- TODO humanise this error message
-          , error
+          ( model
+          , Loader.PageError "Server Error" "Retry" (Retry action fields) (Just ("Bad Status: " ++ status))
           , Cmd.none)
       Err e ->
         let
@@ -238,9 +235,6 @@ view : Model -> Html Msg
 view model =
   Grid.container []
     [ h1 [] [ text ("EditForm: " ++ model.what) ]
-    , case model.error of
-        Nothing -> text ""
-        Just err -> Alert.simpleDanger [] [ text err ]
     , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
     ]
 
