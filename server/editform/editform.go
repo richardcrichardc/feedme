@@ -38,7 +38,7 @@ func Handler(factory FormFactory) http.Handler {
     fi := new(Instance)
     fi.Form = f
 
-    fi.Id = getId(req)
+    fi.Id = GetId(req)
 
     switch req.Method {
     case "GET":
@@ -97,7 +97,7 @@ func Handler(factory FormFactory) http.Handler {
   })
 }
 
-func getId(req *http.Request) int {
+func GetId(req *http.Request) int {
   val := mux.Vars(req)["id"]
 
   if val == "new" {

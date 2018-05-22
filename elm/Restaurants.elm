@@ -3,7 +3,7 @@ module Restaurants exposing (main)
 import Loader
 import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, int)
 import Html exposing (..)
-import Html.Attributes exposing (href, class)
+import Html.Attributes exposing (href, class, style)
 import Html.Events exposing (onClick)
 
 
@@ -79,10 +79,14 @@ tableView model =
 rowView : Restaurant -> Table.Row Msg
 rowView restaurant =
   let
-    link =  "restaurants/" ++ (toString restaurant.id)
+    detailsLink =  "restaurants/" ++ (toString restaurant.id)
+    menuLink = detailsLink ++ "/menu"
   in
     Table.tr []
       [ Table.td [] [ text restaurant.slug ]
       , Table.td [] [ text restaurant.name ]
-      , Table.td [] [ a [ href link ] [ text " Edit" ] ]
+      , Table.td []
+        [ a [ href detailsLink ] [ text "Details" ]
+        , a [ href menuLink, style [("margin-left", "1em")] ] [ text "Menu" ]
+        ]
       ]

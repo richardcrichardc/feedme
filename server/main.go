@@ -24,6 +24,8 @@ func main() {
 
   router.HandleFunc("/admin/restaurants", getRestaurants).Methods("GET")
   router.Handle("/admin/restaurants/{id}", editform.Handler(NewEditRestaurantForm))
+  router.HandleFunc("/admin/restaurants/{id}/menu", editMenu).Methods("GET")
+
   router.HandleFunc("/admin/router", getRouter).Methods("GET")
 
 

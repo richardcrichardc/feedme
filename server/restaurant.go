@@ -121,6 +121,12 @@ func (f *EditRestaurantForm) Save(fi *ef.Instance) {
   checkError(dbUpsert("restaurants", fi.Id, EditRestaurantFormCols(), fi.Data))
 }
 
+// Edit Menu
+
+func editMenu(w http.ResponseWriter, req *http.Request) {
+  restaurant := fetchRestaurant(ef.GetId(req))
+  templates.ElmApp(w, req, "MenuEditor", restaurant)
+}
 
 
 
