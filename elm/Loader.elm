@@ -25,7 +25,7 @@ type alias LoaderModel model pageMsg =
 
 
 programWithFlags
-  : { flagDecoder : Decoder model
+  : { flagDecodeFn : Value -> Result String model
     , update : pageMsg -> model -> Error pageMsg -> (model, Error pageMsg, Cmd pageMsg)
     , view : model -> Html.Html pageMsg
     }
@@ -33,15 +33,30 @@ programWithFlags
 
 programWithFlags spec =
   Html.programWithFlags
-    { init = init spec.flagDecoder
+    { init = init spec.flagDecodeFn
     , view = view spec.view
     , update = update spec.update
     , subscriptions = always Sub.none
     }
 
-init : Decoder model -> Value -> (LoaderModel model pageMsg, Cmd msg)
-init decoder flags =
-  case decodeValue decoder flags of
+programWithFlagsDecoder
+  : { flagDecoder : Decoder model
+    , update : pageMsg -> model -> Error pageMsg -> (model, Error pageMsg, Cmd pageMsg)
+    , view : model -> Html.Html pageMsg
+    }
+  -> Program Value (LoaderModel model pageMsg) (Msg pageMsg)
+
+programWithFlagsDecoder spec =
+  Html.programWithFlags
+    { init = init (decodeValue spec.flagDecoder)
+    , view = view spec.view
+    , update = update spec.update
+    , subscriptions = always Sub.none
+    }
+
+init : (Value -> Result String model) -> Value -> (LoaderModel model pageMsg, Cmd msg)
+init decodeFn flags =
+  case decodeFn flags of
     Ok model ->
       (LoaderModel NoError False (Just model), Cmd.none)
     Err err ->

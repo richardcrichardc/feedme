@@ -1,6 +1,7 @@
 package main
 
 import (
+  "fmt"
   "net/http"
   "feedme/server/templates"
   ef "feedme/server/editform"
@@ -125,7 +126,20 @@ func (f *EditRestaurantForm) Save(fi *ef.Instance) {
 
 func editMenu(w http.ResponseWriter, req *http.Request) {
   restaurant := fetchRestaurant(ef.GetId(req))
-  templates.ElmApp(w, req, "MenuEditor", restaurant)
+
+data := struct {
+    Url string
+    CancelUrl string
+    SavedUrl string
+    Json string
+}{
+    fmt.Sprintf("/admin/restaurants/%d/menu", restaurant.Id),
+    "/admin/restaurants",
+    "/admin/restaurants",
+    string(restaurant.Menu),
+}
+
+  templates.ElmApp(w, req, "MenuEditor", data)
 }
 
 

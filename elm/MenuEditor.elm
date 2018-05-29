@@ -1,10 +1,14 @@
 module MenuEditor exposing (..)
 
+import Loader
 import Navigation
+
+import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
+import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
 
 import Html exposing (..)
 import Html.Events exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (cols, rows, style)
 
 import Json.Encode as Encode
 
@@ -15,22 +19,21 @@ import Bootstrap.Alert as Alert
 import Bootstrap.Form as Form
 import Bootstrap.Button as Button
 
-import Rails
-import Menu exposing (..)
+import Menu
 
 main =
-  Navigation.programWithFlags
-    NewLocation
-    { init = init
+  Loader.programWithFlagsDecoder
+    { flagDecoder = decodeModel
     , view = view
     , update = update
-    , subscriptions = always Sub.none
     }
 
 -- MODEL
 
 type alias Model =
-  { target : Rails.FormTarget
+  { url: String
+  , cancelUrl : String
+  , savedUrl : String
   , json : String
   , error : String
   , menu : Maybe Menu.Menu
@@ -38,32 +41,25 @@ type alias Model =
   }
 
 
-type alias Fields = { json : Maybe String }
-
---type alias Flags =
---  { target : FormTarget
---  , fields :
---  }
-
-init : Rails.FormFlags Fields -> Navigation.Location -> (Model, Cmd Msg)
-init flags location =
+decodeModel : Decoder Model
+decodeModel =
   let
-    (initialJson, initialError, initialMenu) =
-      case flags.fields.json of
-        Just json ->
-          case decode json of
-            Ok menu -> (json, "", Just menu)
-            Err err -> (json, err, Nothing)
-        Nothing -> ("{}", "", Nothing)
+    toDecoder : String -> String -> String -> String -> Decoder Model
+    toDecoder url cancelUrl savedUrl json =
+      let
+        (error, menu) =
+          case Menu.decode json of
+            Ok menu -> ("", Just menu)
+            Err err -> (err, Nothing)
+      in
+        succeed (Model url cancelUrl savedUrl json error menu [])
   in
-    ( { target = flags.target
-      , json = initialJson
-      , error = initialError
-      , menu = initialMenu
-      , order = []
-      }
-    , Cmd.none
-    )
+    decode toDecoder
+      |> required "Url" string
+      |> required "CancelUrl" string
+      |> required "SavedUrl" string
+      |> required "Json" string
+      |> resolve
 
 
 -- UPDATE
@@ -71,17 +67,17 @@ init flags location =
 type Msg
   = Change String
   | Save
-  | SaveResponse Rails.Msg
+--  | SaveResponse Rails.Msg
   | MenuMsg Menu.Msg
   | NewLocation Navigation.Location
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
+update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
+update msg model loaderError =
   case msg of
     Change newJson ->
       let
         (newError, newMenu) =
-          case decode newJson of
+          case Menu.decode newJson of
             Ok menu -> ("", Just menu)
             Err err -> (err, model.menu)
       in
@@ -89,23 +85,23 @@ update msg model =
            json = newJson
            , error = newError
            , menu = newMenu
-        }, Cmd.none)
+        }, loaderError, Cmd.none)
 
-    Save ->
-      let
-        payload = Encode.object
-                  [ ("json", Encode.string model.json) ]
-      in
-        (model, Cmd.map SaveResponse (Rails.submitForm model.target "menu" payload))
+    Save -> (model, loaderError, Cmd.none)
+      --let
+      --  body = Encode.object [ ("json", Encode.string model.json) ]
+      --  request = Http.post model.url body decodePostResponse
+      --in
+      --  (model, loaderError, Http.send SaveMessage request)
 
-    SaveResponse railsMsg ->
-      case railsMsg of
-        Rails.FormRedirect location -> ( model, Navigation.load location )
-        Rails.FormError err -> ( { model | error = err }, Cmd.none )
+--    SaveResponse railsMsg ->
+--      case railsMsg of
+--        Rails.FormRedirect location -> ( model, Navigation.load location )
+--        Rails.FormError err -> ( { model | error = err }, Cmd.none )
 
-    MenuMsg menuMsg -> (model, Cmd.none)
+    MenuMsg menuMsg -> (model, loaderError, Cmd.none)
 
-    NewLocation menuMsg -> (model, Cmd.none)
+    NewLocation menuMsg -> (model, loaderError, Cmd.none)
 
 
 
@@ -114,7 +110,8 @@ update msg model =
 view : Model -> Html Msg
 view model =
   Grid.container []
-    [ Grid.row []
+    [ h1 [] [ text "Edit Menu" ]
+    , Grid.row []
       [ Grid.col [ Col.md ]
           [ rowcol [
               textarea
@@ -138,7 +135,7 @@ view model =
                   Alert.simpleDanger [] [ text model.error ]]
           ]
       , Grid.col [ Col.md ]
-          [ Html.map MenuMsg (maybeMenuView model.menu model.order)
+          [ Html.map MenuMsg (Menu.maybeMenuView model.menu model.order)
           ]
       ]
     ]

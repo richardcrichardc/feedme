@@ -24,7 +24,7 @@ import Bootstrap.Alert as Alert
 import Scroll
 
 main =
-  Loader.programWithFlags
+  Loader.programWithFlagsDecoder
     { flagDecoder = decodeModel
     , view = view
     , update = update
