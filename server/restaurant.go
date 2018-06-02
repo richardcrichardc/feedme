@@ -2,6 +2,7 @@ package main
 
 import (
   "fmt"
+  "io/ioutil"
   "net/http"
   "feedme/server/templates"
   ef "feedme/server/editform"
@@ -125,21 +126,35 @@ func (f *EditRestaurantForm) Save(fi *ef.Instance) {
 // Edit Menu
 
 func editMenu(w http.ResponseWriter, req *http.Request) {
-  restaurant := fetchRestaurant(ef.GetId(req))
+  id := ef.GetId(req)
 
-data := struct {
-    Url string
-    CancelUrl string
-    SavedUrl string
-    Json string
-}{
-    fmt.Sprintf("/admin/restaurants/%d/menu", restaurant.Id),
-    "/admin/restaurants",
-    "/admin/restaurants",
-    string(restaurant.Menu),
-}
+  switch req.Method {
+  case "GET":
+    restaurant := fetchRestaurant(id)
 
-  templates.ElmApp(w, req, "MenuEditor", data)
+    data := struct {
+        Url string
+        CancelUrl string
+        SavedUrl string
+        Json string
+    }{
+        fmt.Sprintf("/admin/restaurants/%d/menu", restaurant.Id),
+        "/admin/restaurants",
+        "/admin/restaurants",
+        string(restaurant.Menu),
+    }
+
+    templates.ElmApp(w, req, "MenuEditor", data)
+
+  case "POST":
+    body, err := ioutil.ReadAll(req.Body)
+    checkError(err)
+
+    _, err = db.Exec("UPDATE restaurants SET menu=$1 WHERE ID=$2", body, id)
+    checkError(err)
+
+    fmt.Fprint(w, "\"OK\"")
+  }
 }
 
 

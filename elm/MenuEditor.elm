@@ -2,6 +2,7 @@ module MenuEditor exposing (..)
 
 import Loader
 import Navigation
+import Http
 
 import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
@@ -67,9 +68,8 @@ decodeModel =
 type Msg
   = Change String
   | Save
---  | SaveResponse Rails.Msg
+  | SaveResponse (Result Http.Error String)
   | MenuMsg Menu.Msg
-  | NewLocation Navigation.Location
 
 update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
 update msg model loaderError =
@@ -87,22 +87,23 @@ update msg model loaderError =
            , menu = newMenu
         }, loaderError, Cmd.none)
 
-    Save -> (model, loaderError, Cmd.none)
-      --let
-      --  body = Encode.object [ ("json", Encode.string model.json) ]
-      --  request = Http.post model.url body decodePostResponse
-      --in
-      --  (model, loaderError, Http.send SaveMessage request)
+    Save ->
+      let
+        body = Http.stringBody "application/json" model.json
+        request = Http.post model.url body decodePostResponse
+      in
+        (model, loaderError, Http.send SaveResponse request)
 
---    SaveResponse railsMsg ->
---      case railsMsg of
---        Rails.FormRedirect location -> ( model, Navigation.load location )
---        Rails.FormError err -> ( { model | error = err }, Cmd.none )
+    SaveResponse (Ok dummy) ->
+        (model, loaderError, Navigation.load model.savedUrl)
+
+    SaveResponse (Err err) ->
+        (model, Loader.PageError "Error" "Retry" Save (Just (toString err)), Cmd.none)
 
     MenuMsg menuMsg -> (model, loaderError, Cmd.none)
 
-    NewLocation menuMsg -> (model, loaderError, Cmd.none)
 
+decodePostResponse = string
 
 
 -- VIEW
