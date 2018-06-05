@@ -81,6 +81,7 @@ func Handler(factory FormFactory) http.Handler {
 
       switch sub.Action {
       case "VALIDATE":
+        //panic("Oh oh")
         json.NewEncoder(w).Encode(SubmissionResult{"OK", nil})
       case "SAVE":
         time.Sleep(1*time.Second) // TODO remove me

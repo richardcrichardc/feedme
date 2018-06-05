@@ -1,6 +1,6 @@
 module EditForm exposing (..)
 
-import Loader
+import Util.Loader as Loader
 import Navigation
 import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, dict, bool)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded)
@@ -10,6 +10,8 @@ import Html.Attributes
 import Html.Events
 import Dict
 import Http
+
+import Util.ErrorDialog as ErrorDialog
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
@@ -24,8 +26,8 @@ import Bootstrap.Alert as Alert
 import Scroll
 
 main =
-  Loader.programWithFlagsDecoder
-    { flagDecoder = decodeModel
+  Loader.programWithFlags
+    { decoder = decodeModel
     , view = view
     , update = update
     }
@@ -41,6 +43,7 @@ type alias Model =
   , fields : Fields
   , saving : Bool
   , dirty : Bool
+  , errorDialog : ErrorDialog.Dialog Msg
   }
 
 type Row = StringRow BasicRowData
@@ -73,6 +76,7 @@ decodeModel =
     |> required "Data" (dict decodeField)
     |> hardcoded False
     |> hardcoded False
+    |> hardcoded Nothing
 
 decodeRow : Decoder Row
 decodeRow =
@@ -108,63 +112,66 @@ decodeField =
 -- UPDATE
 
 type Msg
-  = NewLocation Navigation.Location
-  | UpdateField String String
+  = UpdateField String String
   | BlurField
   | Save
   | Cancel
   | Validation String Fields (Result Http.Error PostResponse)
   | Retry String Fields
+  | ErrorDialogMsg ErrorDialog.Msg
 
-update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
-update msg model error =
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
   case msg of
-    NewLocation menuMsg -> (model, error, Cmd.none)
     UpdateField name newValue ->
       ({ model |
          dirty = True,
          fields = Dict.update name (updateFieldValue newValue) model.fields }
-      , error
       , Cmd.none)
     BlurField ->
       ({ model |
          dirty = False }
-      , error
       , if model.dirty then
           post model.url "VALIDATE" model.fields
         else
           Cmd.none
       )
-    Validation action fields result -> validationUpdate action fields result model error
-    Cancel -> (model, error, Navigation.load model.cancelUrl)
-    Save -> ({ model |
-               saving = True }
-            , error
-            , post model.url "SAVE" model.fields)
+    Validation action fields result ->
+      validationUpdate action fields result model
+    Cancel ->
+      (model, Navigation.load model.cancelUrl)
+    Save ->
+      ({ model |
+         saving = True }
+      , post model.url "SAVE" model.fields)
     Retry action fields ->
       (model
-      , error
       , post model.url action fields)
+    ErrorDialogMsg errorDialogMsg ->
+      let
+        (newErrorDialog, cmd) = ErrorDialog.update errorDialogMsg model.errorDialog
+      in
+        ({ model | errorDialog = newErrorDialog}
+        , Cmd.map ErrorDialogMsg cmd)
 
-validationUpdate : String -> Fields -> Result Http.Error PostResponse -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
-validationUpdate action fields result savingModel error =
+validationUpdate : String -> Fields -> Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
+validationUpdate action fields result savingModel =
   let
     model = { savingModel | saving = False}
   in
     case result of
       Ok Okay ->
-          ({ model | fields = mergeErrors Dict.empty model.fields }, error, Cmd.none)
+          ({ model | fields = mergeErrors Dict.empty model.fields }, Cmd.none)
       Ok (Errors errors) ->
-          ({ model | fields = mergeErrors errors model.fields }, error, Cmd.none)
+          ({ model | fields = mergeErrors errors model.fields }, Cmd.none)
       Ok Saved ->
           ({ model |
              fields = mergeErrors Dict.empty model.fields,
              saving = True } -- leave spinner in place until new page is loaded
-          , error
           , Navigation.load model.savedUrl)
       Ok (BadStatus status) ->
-          ( model
-          , Loader.PageError "Server Error" "Retry" (Retry action fields) (Just ("Bad Status: " ++ status))
+          ({ model |
+              errorDialog = ErrorDialog.dialog "Server Error" (Just ("Retry", (Retry action fields))) Nothing }
           , Cmd.none)
       Err e ->
         let
@@ -174,8 +181,8 @@ validationUpdate action fields result savingModel error =
             _ -> -- TODO handle other errors
               "Server Error"
         in
-          ( model
-          , Loader.PageError title "Retry" (Retry action fields) Nothing
+          ({ model |
+              errorDialog = ErrorDialog.dialog "Server Error" (Just ("Retry", (Retry action fields))) Nothing }
           , Cmd.none)
 
 
@@ -236,6 +243,7 @@ view model =
   Grid.container []
     [ h1 [] [ text ("EditForm: " ++ model.what) ]
     , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
+    , Html.map ErrorDialogMsg (ErrorDialog.view model.errorDialog)
     ]
 
 leftSize = Col.sm3
