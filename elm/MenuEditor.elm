@@ -20,6 +20,8 @@ import Bootstrap.Alert as Alert
 import Bootstrap.Form as Form
 import Bootstrap.Button as Button
 
+import Util.Form
+
 import Menu
 
 main =
@@ -39,6 +41,7 @@ type alias Model =
   , error : String
   , menu : Maybe Menu.Menu
   , order : Menu.Order
+  , saving : Bool
   }
 
 
@@ -53,7 +56,7 @@ decodeModel =
             Ok menu -> ("", Just menu)
             Err err -> (err, Nothing)
       in
-        succeed (Model url cancelUrl savedUrl json error menu [])
+        succeed (Model url cancelUrl savedUrl json error menu [] False)
   in
     decode toDecoder
       |> required "Url" string
@@ -67,6 +70,7 @@ decodeModel =
 
 type Msg
   = Change String
+  | Cancel
   | Save
   | SaveResponse (Result Http.Error String)
   | MenuMsg Menu.Msg
@@ -87,18 +91,23 @@ update msg model loaderError =
            , menu = newMenu
         }, loaderError, Cmd.none)
 
+    Cancel ->
+      (model, loaderError, Navigation.back 1)
+
     Save ->
       let
         body = Http.stringBody "application/json" model.json
         request = Http.post model.url body decodePostResponse
       in
-        (model, loaderError, Http.send SaveResponse request)
+        ({ model | saving = True }
+        , loaderError, Http.send SaveResponse request)
 
-    SaveResponse (Ok dummy) ->
+    SaveResponse (Ok _) ->
         (model, loaderError, Navigation.load model.savedUrl)
 
     SaveResponse (Err err) ->
-        (model, Loader.PageError "Error" "Retry" Save (Just (toString err)), Cmd.none)
+        ({ model | saving = True }
+        , Loader.PageError "Error" "Retry" Save (Just (toString err)), Cmd.none)
 
     MenuMsg menuMsg -> (model, loaderError, Cmd.none)
 
@@ -122,13 +131,7 @@ view model =
                 , onInput Change
                 ]
                 [ text model.json ]]
-            , rowcol [ Button.button
-                        [ Button.primary
-                        , Button.disabled (model.error /= "")
-                        , Button.onClick Save
-                        ]
-                        [ text "Save" ]
-                      ]
+            , rowcol [ Util.Form.cancelSaveButtonView (model.error /= "") model.saving Cancel Save ]
             , rowcol [
                 if model.error == "" then
                   text ""

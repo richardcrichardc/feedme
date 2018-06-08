@@ -12,6 +12,7 @@ import Dict
 import Http
 
 import Util.ErrorDialog as ErrorDialog
+import Util.Form
 
 import Bootstrap.Grid as Grid
 import Bootstrap.Grid.Col as Col
@@ -313,23 +314,10 @@ buttonView model =
     fieldHasError _ field acc = acc || not (List.isEmpty field.errors)
     formHasError = Dict.foldl fieldHasError False model.fields
     saveDisabled = model.saving || formHasError
-    saveHtml = if model.saving then
-                    [ text "Saving "
-                    , img [ Html.Attributes.class "spinner", Html.Attributes.src "/assets/save-spinner-ba4f7d.gif" ] []
-                    ]
-                  else
-                    [ text "Save" ]
   in
     Form.row []
       [ Form.col [ leftSize ] []
       , Form.col [ rightSize ]
-        [ Button.button
-           [ Button.primary, Button.disabled model.saving, Button.onClick Cancel ]
-           [ text "Cancel" ]
-        , Button.button
-           [ Button.primary, Button.attrs [ Spacing.ml1 ], Button.disabled saveDisabled, Button.onClick Save ]
-           saveHtml
-        ]
+                 [ Util.Form.cancelSaveButtonView saveDisabled model.saving Cancel Save ]
       ]
-
 
