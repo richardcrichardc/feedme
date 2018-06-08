@@ -7,42 +7,29 @@ import Html.Events exposing (onClick)
 
 type alias Dialog parentMsg = Maybe (Model parentMsg)
 
-dialog : String -> Maybe (String, parentMsg) -> Maybe String -> Dialog parentMsg
+dialog : String -> Maybe (String, parentMsg) -> Maybe (String, parentMsg) -> Dialog parentMsg
 dialog title button details =
   Just
     <| Model title button details False
+
+toggleDetails : Dialog parentMsg -> Dialog parentMsg
+toggleDetails maybeModel =
+  case maybeModel of
+    Nothing ->
+      Nothing
+    Just model ->
+      Just { model | showDetails = not model.showDetails }
 
 --
 
 type alias Model parentMsg =
   { title : String
   , button : Maybe (String, parentMsg)
-  , details : Maybe String
+  , details : Maybe (String, parentMsg)
   , showDetails : Bool
   }
 
-type Msg
-  = ButtonPressed
-  | ToggleDetails
-
-
-update : Msg -> Dialog parentMsg -> (Dialog parentMsg, Cmd Msg)
-update msg maybeModel =
-  case maybeModel of
-    Nothing ->
-      (Nothing, Cmd.none)
-    Just model ->
-      let (newModel, cmd) =
-        case msg of
-          ButtonPressed ->
-            (model, Cmd.none)
-          ToggleDetails ->
-            ({ model | showDetails = not model.showDetails } , Cmd.none)
-      in
-        (Just newModel, cmd)
-
-
-view : Dialog parentMsg -> Html Msg
+view : Dialog parentMsg -> Html parentMsg
 view maybeModel =
   case maybeModel of
     Nothing ->
@@ -87,14 +74,14 @@ view maybeModel =
                   Nothing ->
                     text ""
                   Just (label, action) ->
-                    button [ onClick ButtonPressed ] [ text label ]
+                    button [ onClick action ] [ text label ]
               , text " "
               , case model.details of
                   Nothing ->
                     text ""
-                  Just details ->
+                  Just (_, action) ->
                     button
-                      [ onClick ToggleDetails ]
+                      [ onClick action ]
                       [ text <|
                           if model.showDetails then
                             "Hide Details"
@@ -105,7 +92,7 @@ view maybeModel =
           , case model.details of
               Nothing ->
                 text ""
-              Just details ->
+              Just (details, _) ->
                 if model.showDetails then
                   p
                     [ style

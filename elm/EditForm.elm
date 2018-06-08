@@ -118,7 +118,6 @@ type Msg
   | Cancel
   | Validation String Fields (Result Http.Error PostResponse)
   | Retry String Fields
-  | ErrorDialogMsg ErrorDialog.Msg
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -147,12 +146,6 @@ update msg model =
     Retry action fields ->
       (model
       , post model.url action fields)
-    ErrorDialogMsg errorDialogMsg ->
-      let
-        (newErrorDialog, cmd) = ErrorDialog.update errorDialogMsg model.errorDialog
-      in
-        ({ model | errorDialog = newErrorDialog}
-        , Cmd.map ErrorDialogMsg cmd)
 
 validationUpdate : String -> Fields -> Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
 validationUpdate action fields result savingModel =
@@ -243,7 +236,7 @@ view model =
   Grid.container []
     [ h1 [] [ text ("EditForm: " ++ model.what) ]
     , Form.form [] ((List.map (rowView model) model.rows) ++ [(buttonView model)])
-    , Html.map ErrorDialogMsg (ErrorDialog.view model.errorDialog)
+    , ErrorDialog.view model.errorDialog
     ]
 
 leftSize = Col.sm3

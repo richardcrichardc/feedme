@@ -27,7 +27,7 @@ programWithFlags spec =
 
 type Msg pageMsg
   = Refresh
-  | ErrorDialogMsg ErrorDialog.Msg
+  | ToggleDetails
   | PageMsg pageMsg
 
 
@@ -44,7 +44,7 @@ init decoder flags =
       (Model Nothing (Just model), Cmd.none)
     Err err ->
       let
-        errorDialog = ErrorDialog.dialog "Page Load Error" (Just ("Reload Page", Refresh)) (Just err)
+        errorDialog = ErrorDialog.dialog "Page Load Error" (Just ("Reload Page", Refresh)) (Just (err, ToggleDetails))
       in
         (Model errorDialog Nothing, Cmd.none)
 
@@ -59,11 +59,8 @@ update pageUpdate msg model =
   case msg of
     Refresh ->
       (model, Navigation.reload)
-    ErrorDialogMsg msg ->
-      let
-        (updatedErrorDialog, cmd) = ErrorDialog.update msg model.errorDialog
-      in
-        ({ model | errorDialog = updatedErrorDialog}, Cmd.map ErrorDialogMsg cmd)
+    ToggleDetails ->
+      ({ model | errorDialog = ErrorDialog.toggleDetails model.errorDialog}, Cmd.none)
     PageMsg msg ->
       case model.maybePageModel of
         Nothing ->
@@ -78,7 +75,7 @@ update pageUpdate msg model =
 view : (pageModel -> Html pageMsg) -> Model pageMsg pageModel -> Html (Msg pageMsg)
 view pageView model =
   div []
-    [ Html.map ErrorDialogMsg (ErrorDialog.view model.errorDialog)
+    [ ErrorDialog.view model.errorDialog
     , case model.maybePageModel of
       Nothing ->
         text ""
