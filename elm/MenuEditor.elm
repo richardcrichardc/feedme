@@ -1,6 +1,6 @@
 module MenuEditor exposing (..)
 
-import Loader
+import Util.Loader as Loader
 import Navigation
 import Http
 
@@ -21,12 +21,12 @@ import Bootstrap.Form as Form
 import Bootstrap.Button as Button
 
 import Util.Form
-
+import Util.ErrorDialog as ErrorDialog
 import Menu
 
 main =
-  Loader.programWithFlagsDecoder
-    { flagDecoder = decodeModel
+  Loader.programWithFlags
+    { decoder = decodeModel
     , view = view
     , update = update
     }
@@ -42,6 +42,7 @@ type alias Model =
   , menu : Maybe Menu.Menu
   , order : Menu.Order
   , saving : Bool
+  , errorDialog : ErrorDialog.Dialog Msg
   }
 
 
@@ -56,7 +57,7 @@ decodeModel =
             Ok menu -> ("", Just menu)
             Err err -> (err, Nothing)
       in
-        succeed (Model url cancelUrl savedUrl json error menu [] False)
+        succeed (Model url cancelUrl savedUrl json error menu [] False Nothing)
   in
     decode toDecoder
       |> required "Url" string
@@ -74,9 +75,10 @@ type Msg
   | Save
   | SaveResponse (Result Http.Error String)
   | MenuMsg Menu.Msg
+  | ToggleErrorDetails
 
-update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
-update msg model loaderError =
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
   case msg of
     Change newJson ->
       let
@@ -89,10 +91,10 @@ update msg model loaderError =
            json = newJson
            , error = newError
            , menu = newMenu
-        }, loaderError, Cmd.none)
+        }, Cmd.none)
 
     Cancel ->
-      (model, loaderError, Navigation.back 1)
+      (model, Navigation.back 1)
 
     Save ->
       let
@@ -100,16 +102,22 @@ update msg model loaderError =
         request = Http.post model.url body decodePostResponse
       in
         ({ model | saving = True }
-        , loaderError, Http.send SaveResponse request)
+        , Http.send SaveResponse request)
 
     SaveResponse (Ok _) ->
-        (model, loaderError, Navigation.load model.savedUrl)
+        (model, Navigation.load model.savedUrl)
 
     SaveResponse (Err err) ->
-        ({ model | saving = True }
-        , Loader.PageError "Error" "Retry" Save (Just (toString err)), Cmd.none)
+        ({ model |
+            saving = True,
+            errorDialog = ErrorDialog.dialog "Error" (Just ("Retry", Save)) (Just (toString err, ToggleErrorDetails))}
+        , Cmd.none)
 
-    MenuMsg menuMsg -> (model, loaderError, Cmd.none)
+    MenuMsg menuMsg -> (model, Cmd.none)
+
+    ToggleErrorDetails ->
+      ({ model | errorDialog = ErrorDialog.toggleDetails model.errorDialog }
+      , Cmd.none)
 
 
 decodePostResponse = string
@@ -120,7 +128,8 @@ decodePostResponse = string
 view : Model -> Html Msg
 view model =
   Grid.container []
-    [ h1 [] [ text "Edit Menu" ]
+    [ ErrorDialog.view model.errorDialog
+    , h1 [] [ text "Edit Menu" ]
     , Grid.row []
       [ Grid.col [ Col.md ]
           [ rowcol [

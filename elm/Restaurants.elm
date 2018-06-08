@@ -1,6 +1,6 @@
 module Restaurants exposing (main)
 
-import Loader
+import Util.Loader as Loader
 import Json.Decode as Decode exposing (Decoder, Value, decodeValue, field, string, list, int)
 import Html exposing (..)
 import Html.Attributes exposing (href, class, style)
@@ -13,8 +13,8 @@ import Bootstrap.Button as Button
 
 
 main =
-  Loader.programWithFlagsDecoder
-    { flagDecoder = decodeModel
+  Loader.programWithFlags
+    { decoder = decodeModel
     , view = view
     , update = update
     }
@@ -43,11 +43,11 @@ decodeRestaurant = Decode.map3 Restaurant
 type Msg
   = Dup Restaurant
 
-update : Msg -> Model -> Loader.Error Msg -> (Model, Loader.Error Msg, Cmd Msg)
-update msg model loaderError =
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model =
   case msg of
     Dup restaurant ->
-      (model ++ [restaurant], loaderError, Cmd.none)
+      (model ++ [restaurant], Cmd.none)
 
 -- VIEW
 
