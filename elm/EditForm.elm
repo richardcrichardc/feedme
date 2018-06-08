@@ -150,7 +150,10 @@ update msg model =
 validationUpdate : String -> Fields -> Result Http.Error PostResponse -> Model -> (Model, Cmd Msg)
 validationUpdate action fields result savingModel =
   let
-    model = { savingModel | saving = False}
+    model = { savingModel |
+                saving = False,
+                errorDialog = Nothing
+            }
   in
     case result of
       Ok Okay ->
