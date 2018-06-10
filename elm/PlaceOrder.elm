@@ -9,6 +9,8 @@ import Scroll
 import Html exposing (..)
 import Html.Attributes exposing(id, class, src, style, href)
 
+import Bootstrap.Navbar as Navbar
+
 main =
   Navigation.programWithFlags
     NewLocation
@@ -23,8 +25,9 @@ main =
 type alias Model =
   { target : Rails.FormTarget
   , menu_id : Int
-  , menu : Maybe Menu.Menu
+  , menu : Menu.Menu
   , order : Menu.Order
+  , navbarState : Navbar.State
   }
 
 type alias FlagFields =
@@ -34,58 +37,70 @@ type alias FlagFields =
 
 init : Rails.FormFlags FlagFields -> Navigation.Location -> (Model, Cmd Msg)
 init flags location =
-  ( { target = flags.target
-    , menu_id = flags.fields.menu_id
-    , menu = Just flags.fields.menu
-    , order = []
-    }
-  , Scroll.scrollHash location
-  )
+  let
+    (initialNavbarState, initialNavbarCmd) = Navbar.initialState NavbarMsg
+  in
+    ( { target = flags.target
+      , menu_id = flags.fields.menu_id
+      , menu = flags.fields.menu
+      , order = []
+      , navbarState = initialNavbarState
+      }
+    , Cmd.batch
+        [ Scroll.scrollHash location
+        , initialNavbarCmd
+        ]
+    )
 
 -- UPDATE
 
 type Msg
   = NewLocation Navigation.Location
   | MenuMsg Menu.Msg
+  | NavbarMsg Navbar.State
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
-    NewLocation menuMsg -> (model, Cmd.none)
+    NewLocation location ->
+        (model, Scroll.scrollHash location)
 
     MenuMsg (Menu.Add item) ->
-          ( { model | order = Menu.orderAdd item model.order }
-          , Cmd.none
-          )
+      ( { model | order = Menu.orderAdd item model.order }
+      , Cmd.none
+      )
+
+    NavbarMsg state ->
+      ( { model | navbarState = state }, Cmd.none )
 
 -- VIEW
 
 view : Model -> Html Msg
 view model =
   div []
-    [ div [] [ maybeSinglePageView model.menu model.order ]
-    ]
-
-maybeSinglePageView : Maybe Menu.Menu -> Menu.Order -> Html Msg
-maybeSinglePageView menu_ order =
-  case menu_ of
-    Just menu ->
-      singlePageView menu order
-    Nothing ->
-      text "No menu"
-
-singlePageView : Menu.Menu -> Menu.Order -> Html Msg
-singlePageView menu order =
-  div []
-    [ logoView menu.title
+    [ navbarView model.navbarState
+    , logoView model.menu.title
     , div [ id "menu", class "container menu section" ]
       [ h2 [] [ text "Menu" ]
-      , Html.map MenuMsg (Menu.menuView menu order)
+      , Html.map MenuMsg (Menu.menuView model.menu model.order)
       ]
     , locationView
     , aboutView
     , footer
     ]
+
+navbarView : Navbar.State -> Html Msg
+navbarView state =
+    Navbar.config NavbarMsg
+        |> Navbar.withAnimation
+        |> Navbar.fixTop
+        |> Navbar.brand [ href "#"] [ text "Brand"]
+        |> Navbar.items
+            [ Navbar.itemLink [ href "#menu" ] [ text "Menu"]
+            , Navbar.itemLink [ href "#location" ] [ text "Location"]
+            , Navbar.itemLink [ href "#about" ] [ text "About"]
+            ]
+        |> Navbar.view state
 
 
 logoView : String -> Html Msg

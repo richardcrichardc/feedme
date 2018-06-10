@@ -21,7 +21,7 @@
 
       elmApp.ports.scrollIntoView.subscribe(function(domId) {
        var el = document.getElementById(domId)
-       el ? el.scrollIntoView() : null
+       el ? el.scrollIntoView({behavior: 'smooth'}) : null
       })
     </script>
   </body>
