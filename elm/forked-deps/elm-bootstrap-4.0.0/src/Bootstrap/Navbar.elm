@@ -1056,7 +1056,7 @@ renderNav :
     -> Html.Html msg
 renderNav state config navItems =
     Html.ul
-        [ class "navbar-nav mr-auto" ]
+        [ class "navbar-nav ml-auto" ]
         (List.map
             (\item ->
                 case item of
