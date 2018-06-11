@@ -23,6 +23,10 @@
        var el = document.getElementById(domId)
        el ? el.scrollIntoView({behavior: 'smooth'}) : null
       })
+
+      window.onscroll = function() {
+        elmApp.ports.scrollPosition.send(window.pageYOffset || document.body.scrollTop);
+      }
     </script>
   </body>
 </html>

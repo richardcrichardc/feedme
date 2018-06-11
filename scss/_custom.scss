@@ -1,6 +1,11 @@
-.logoBox {
+.logo-box {
   min-height: 100vh;
   background-color: green;
+}
+
+.logo-box-nav {
+  a { color: black }
+  text-align: center;
 }
 
 .menu {

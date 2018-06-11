@@ -1,7 +1,7 @@
 module PlaceOrder exposing (..)
 
 import Navigation
-
+import Char
 import Menu
 import Rails
 import Scroll
@@ -17,7 +17,7 @@ main =
     { init = init
     , view = view
     , update = update
-    , subscriptions = always Sub.none
+    , subscriptions = subscriptions
     }
 
 -- MODEL
@@ -28,6 +28,7 @@ type alias Model =
   , menu : Menu.Menu
   , order : Menu.Order
   , navbarState : Navbar.State
+  , scrollPosition : Int
   }
 
 type alias FlagFields =
@@ -45,6 +46,7 @@ init flags location =
       , menu = flags.fields.menu
       , order = []
       , navbarState = initialNavbarState
+      , scrollPosition = 0
       }
     , Cmd.batch
         [ Scroll.scrollHash location
@@ -52,12 +54,18 @@ init flags location =
         ]
     )
 
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Scroll.scrollPosition Scrolled
+
+
 -- UPDATE
 
 type Msg
   = NewLocation Navigation.Location
   | MenuMsg Menu.Msg
   | NavbarMsg Navbar.State
+  | Scrolled Int
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -73,12 +81,15 @@ update msg model =
     NavbarMsg state ->
       ( { model | navbarState = state }, Cmd.none )
 
+    Scrolled scrollPosition ->
+      ( { model | scrollPosition = scrollPosition }, Cmd.none )
+
 -- VIEW
 
 view : Model -> Html Msg
 view model =
   div []
-    [ navbarView model.navbarState
+    [ navbarView model.navbarState model.scrollPosition
     , logoView model.menu.title
     , div [ id "menu", class "container menu section" ]
       [ h2 [] [ text "Menu" ]
@@ -89,29 +100,51 @@ view model =
     , footer
     ]
 
-navbarView : Navbar.State -> Html Msg
-navbarView state =
-    Navbar.config NavbarMsg
-        |> Navbar.withAnimation
-        |> Navbar.fixTop
-        |> Navbar.brand [ href "#"] [ text "Brand"]
-        |> Navbar.items
-            [ Navbar.itemLink [ href "#menu" ] [ text "Menu"]
-            , Navbar.itemLink [ href "#location" ] [ text "Location"]
-            , Navbar.itemLink [ href "#about" ] [ text "About"]
-            ]
-        |> Navbar.view state
-
+navbarView : Navbar.State -> Int -> Html Msg
+navbarView state scrollPosition =
+  let
+    scrollPositionFloat = toFloat scrollPosition
+    threshold = 100.0
+    opacity = if scrollPositionFloat > threshold then
+                0.0
+              else
+                1.0 - (scrollPositionFloat / threshold)
+  in
+    if opacity > 0.0 then
+      div [ style [("opacity", (toString opacity))]]
+        [ Navbar.config NavbarMsg
+            |> Navbar.withAnimation
+            |> Navbar.fixTop
+            |> Navbar.brand [ href "#"] [ text "Brand"]
+            |> Navbar.items
+                [ Navbar.itemLink [ href "#menu" ] [ text "Menu"]
+                , Navbar.itemLink [ href "#location" ] [ text "Location"]
+                , Navbar.itemLink [ href "#about" ] [ text "About"]
+                ]
+            |> Navbar.view state
+        ]
+      else
+        text ""
 
 logoView : String -> Html Msg
 logoView title =
-  div
-    [ class "container logoBox d-flex flex-column justify-content-center" ]
-    [ div [ ]
-      [ img [ class "mx-auto d-block", src "/assets/food-e8350f.jpg" ] []
-      , h1 [ class "text-center", style [("margin-top", "1em")] ] [ text title ]
+  let
+    enspace = String.fromChar (Char.fromCode 8194)
+  in
+    div
+      [ class "container logo-box d-flex flex-column justify-content-center" ]
+      [ div [ ]
+        [ img [ class "mx-auto d-block", src "/assets/food-e8350f.jpg" ] []
+        , h1 [ class "text-center", style [("margin-top", "1em")] ] [ text title ]
+        , p [ class "logo-box-nav"]
+            [ a [ href "#menu" ] [ text "Menu"]
+            , text enspace
+            , a [ href "#location" ] [ text "Location"]
+            , text enspace
+            , a [ href "#about" ] [ text "About"]
+            ]
+        ]
       ]
-    ]
 
 locationView : Html Msg
 locationView =

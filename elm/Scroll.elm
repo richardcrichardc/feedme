@@ -3,7 +3,7 @@ port module Scroll exposing (..)
 import Navigation
 
 port scrollIntoView : String -> Cmd msg
-
+port scrollPosition : (Int -> msg) -> Sub msg
 
 scrollHash : Navigation.Location -> Cmd msg
 scrollHash location =
