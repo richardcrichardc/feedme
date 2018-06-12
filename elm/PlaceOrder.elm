@@ -56,8 +56,10 @@ init flags location =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-  Scroll.scrollPosition Scrolled
-
+  Sub.batch
+  [ Scroll.scrollPosition Scrolled
+  , Navbar.subscriptions model.navbarState NavbarMsg
+  ]
 
 -- UPDATE
 
