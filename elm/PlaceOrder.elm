@@ -92,7 +92,7 @@ view : Model -> Html Msg
 view model =
   div []
     [ navbarView model.navbarState model.scrollPosition
-    , logoView model.menu.title
+    , logoView "???????"
     , div [ id "menu", class "container menu section" ]
       [ h2 [] [ text "Menu" ]
       , Html.map MenuMsg (Menu.menuView model.menu model.order)

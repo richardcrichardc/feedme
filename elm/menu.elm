@@ -14,10 +14,7 @@ import Bootstrap.Table as Table
 type Msg
     = Add OrderItem
 
-type alias Menu =
-  { title : String
-  , items : List MenuItem
-  }
+type alias Menu = List MenuItem
 
 type alias MenuItem =
   { id : Int
@@ -60,9 +57,7 @@ decode str =
   Decode.decodeString menuDecoder str
 
 menuDecoder: Decode.Decoder Menu
-menuDecoder = Decode.map2 Menu
-                (Decode.field "title" Decode.string)
-                (Decode.field "items" (Decode.list itemDecoder))
+menuDecoder = Decode.list itemDecoder
 
 
 itemDecoder: Decode.Decoder MenuItem
@@ -85,7 +80,7 @@ maybeMenuView menu_ order =
 
 menuView : Menu -> Order -> Html Msg
 menuView menu order =
-      div [] [ div [] (List.map (itemView order) menu.items) ]
+      div [] [ div [] (List.map (itemView order) menu) ]
 
 itemView : Order -> MenuItem -> Html Msg
 itemView order item =
@@ -161,7 +156,7 @@ orderInvoice menu order =
 orderItemInvoiceLine : Menu -> OrderItem -> InvoiceLine
 orderItemInvoiceLine menu orderItem =
   let
-    menuItem = menuItemForId menu.items orderItem.id
+    menuItem = menuItemForId menu orderItem.id
   in
     { qty = orderItem.qty,
       desc = menuItem.name,
