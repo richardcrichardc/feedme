@@ -1,10 +1,13 @@
 module PlaceOrder exposing (..)
 
+import Util.Loader as Loader
 import Navigation
 import Char
 import Menu
-import Rails
 import Scroll
+
+import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
+import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
 
 import Html exposing (..)
 import Html.Attributes exposing(id, class, src, style, href)
@@ -12,7 +15,7 @@ import Html.Attributes exposing(id, class, src, style, href)
 import Bootstrap.Navbar as Navbar
 
 main =
-  Navigation.programWithFlags
+  Loader.programWithFlags2
     NewLocation
     { init = init
     , view = view
@@ -20,39 +23,36 @@ main =
     , subscriptions = subscriptions
     }
 
--- MODEL
-
-type alias Model =
-  { target : Rails.FormTarget
-  , menu_id : Int
-  , menu : Menu.Menu
-  , order : Menu.Order
-  , navbarState : Navbar.State
-  , scrollPosition : Int
-  }
-
-type alias FlagFields =
-  { menu_id : Int
-  , menu : Menu.Menu
-  }
-
-init : Rails.FormFlags FlagFields -> Navigation.Location -> (Model, Cmd Msg)
-init flags location =
+init : Value -> Navigation.Location -> (Result String Model, Cmd Msg)
+init value location =
   let
     (initialNavbarState, initialNavbarCmd) = Navbar.initialState NavbarMsg
   in
-    ( { target = flags.target
-      , menu_id = flags.fields.menu_id
-      , menu = flags.fields.menu
-      , order = []
-      , navbarState = initialNavbarState
-      , scrollPosition = 0
-      }
+    (decodeValue (decodeModel initialNavbarState) value
     , Cmd.batch
         [ Scroll.scrollHash location
         , initialNavbarCmd
         ]
     )
+
+-- MODEL
+
+type alias Model =
+  { menu : Menu.Menu
+  , order : Menu.Order
+  , navbarState : Navbar.State
+  , scrollPosition : Int
+  }
+
+
+decodeModel : Navbar.State -> Decoder Model
+decodeModel initialNavbarState =
+    decode Model
+      |> required "Menu" Menu.menuDecoder
+      |> hardcoded []
+      |> hardcoded initialNavbarState
+      |> hardcoded 0
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =

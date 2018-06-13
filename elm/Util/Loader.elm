@@ -1,6 +1,6 @@
 module Util.Loader exposing (..)
 
-import Navigation
+import Navigation exposing (Location)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Json.Encode exposing (Value)
@@ -16,19 +16,38 @@ programWithFlags
   -> Program Value (Model pageMsg pageModel) (Msg pageMsg)
 
 programWithFlags spec =
-  Html.programWithFlags
-    { init = init (decodeValue spec.decoder)
+  Navigation.programWithFlags
+    DiscardLocation
+    { init = init (\flags location -> (decodeValue spec.decoder flags, Cmd.none))
     , view = view spec.view
     , update = update spec.update
     , subscriptions = always Sub.none
     }
 
---
+programWithFlags2
+  :  (Location -> pageMsg)
+  -> { init : Value -> Location -> (Result String pageModel, Cmd pageMsg)
+     , update : pageMsg -> pageModel -> (pageModel, Cmd pageMsg)
+     , view : pageModel -> Html.Html pageMsg
+     , subscriptions : pageModel -> Sub pageMsg
+     }
+  -> Program Value (Model pageMsg pageModel) (Msg pageMsg)
+
+programWithFlags2 locationToMsg spec =
+  Navigation.programWithFlags
+    (\location -> PageMsg (locationToMsg location))
+    { init = init spec.init
+    , view = view spec.view
+    , update = update spec.update
+    , subscriptions = subscriptions spec.subscriptions
+    }
+
 
 type Msg pageMsg
   = Refresh
   | ToggleDetails
   | PageMsg pageMsg
+  | DiscardLocation Location
 
 
 type alias Model pageMsg pageModel =
@@ -37,12 +56,12 @@ type alias Model pageMsg pageModel =
   }
 
 
-init : (Value -> Result String pageModel) -> Value -> (Model pageMsg pageModel, Cmd (Msg pageMsg))
-init decoder flags =
-  case decoder flags of
-    Ok model ->
-      (Model Nothing (Just model), Cmd.none)
-    Err err ->
+init : (Value -> Location -> (Result String pageModel, Cmd pageMsg)) -> Value -> Location -> (Model pageMsg pageModel, Cmd (Msg pageMsg))
+init pageInit flags location =
+  case pageInit flags location of
+    (Ok model, cmd) ->
+      (Model Nothing (Just model), Cmd.map PageMsg cmd)
+    (Err err, cmd) ->
       let
         errorDialog = ErrorDialog.dialog "Page Load Error" (Just ("Reload Page", Refresh)) (Just (err, ToggleDetails))
       in
@@ -70,6 +89,8 @@ update pageUpdate msg model =
             (updatedPageModel, cmd) = pageUpdate msg pageModel
           in
             ({ model | maybePageModel = Just updatedPageModel}, Cmd.map PageMsg cmd)
+    DiscardLocation location->
+      (model, Cmd.none)
 
 
 view : (pageModel -> Html pageMsg) -> Model pageMsg pageModel -> Html (Msg pageMsg)
@@ -82,3 +103,11 @@ view pageView model =
       Just pageModel ->
         Html.map PageMsg (pageView pageModel)
     ]
+
+subscriptions : (pageModel -> Sub pageMsg) -> Model pageMsg pageModel -> Sub (Msg pageMsg)
+subscriptions pageSubs model =
+  case model.maybePageModel of
+    Nothing ->
+      Sub.none
+    Just pageModel ->
+      Sub.map PageMsg (pageSubs pageModel)
