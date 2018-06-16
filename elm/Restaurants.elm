@@ -84,7 +84,7 @@ rowView restaurant =
   in
     Table.tr []
       [ Table.td [] [ text restaurant.slug ]
-      , Table.td [] [ text restaurant.name ]
+      , Table.td [] [ a [ href ("/" ++ restaurant.slug) ] [ text restaurant.name ]]
       , Table.td []
         [ a [ href detailsLink ] [ text "Details" ]
         , a [ href menuLink, style [("margin-left", "1em")] ] [ text "Menu" ]

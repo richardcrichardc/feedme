@@ -5,6 +5,8 @@ import Navigation
 import Char
 import Menu
 import Scroll
+import Window
+import Task
 
 import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
@@ -32,27 +34,46 @@ init value location =
     , Cmd.batch
         [ Scroll.scrollHash location
         , initialNavbarCmd
+        , Task.perform WindowHeight Window.height
         ]
     )
 
 -- MODEL
 
 type alias Model =
-  { menu : Menu.Menu
+  { name : String
+  , address1 : String
+  , address2 : String
+  , town : String
+  , phone : String
+  , mapLocation : String
+  , mapZoom : String
+  , about : String
+  , menu : Menu.Menu
   , order : Menu.Order
+
   , navbarState : Navbar.State
-  , scrollPosition : Int
+  , scrollPosition : Float
+  , windowHeight : Float
   }
 
 
 decodeModel : Navbar.State -> Decoder Model
 decodeModel initialNavbarState =
     decode Model
+      |> required "Name" string
+      |> required "Address1" string
+      |> required "Address2" string
+      |> required "Town" string
+      |> required "Phone" string
+      |> required "MapLocation" string
+      |> required "MapZoom" string
+      |> required "About" string
       |> required "Menu" Menu.menuDecoder
       |> hardcoded []
       |> hardcoded initialNavbarState
-      |> hardcoded 0
-
+      |> hardcoded 0.0
+      |> hardcoded 0.0
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -68,6 +89,7 @@ type Msg
   | MenuMsg Menu.Msg
   | NavbarMsg Navbar.State
   | Scrolled Int
+  | WindowHeight Int
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -84,52 +106,54 @@ update msg model =
       ( { model | navbarState = state }, Cmd.none )
 
     Scrolled scrollPosition ->
-      ( { model | scrollPosition = scrollPosition }, Cmd.none )
+      ( { model | scrollPosition = toFloat scrollPosition }, Cmd.none )
+
+    WindowHeight windowHeight ->
+      ( { model | windowHeight = toFloat windowHeight }, Cmd.none )
+
 
 -- VIEW
 
 view : Model -> Html Msg
 view model =
   div []
-    [ navbarView model.navbarState model.scrollPosition
-    , logoView "???????"
+    [ navbarView model
+    , logoView model.name
     , div [ id "menu", class "container menu section" ]
       [ h2 [] [ text "Menu" ]
       , Html.map MenuMsg (Menu.menuView model.menu model.order)
       ]
     , locationView
-    , aboutView
+    , aboutView model.about
     , footer
     ]
 
-navbarView : Navbar.State -> Int -> Html Msg
-navbarView state scrollPosition =
+navbarView : Model -> Html Msg
+navbarView model =
   let
-    scrollPositionFloat = toFloat scrollPosition
-    threshold = 100.0
-    opacity = if scrollPositionFloat > threshold then
-                0.0
-              else
-                1.0 - (scrollPositionFloat / threshold)
+    startFade = 0.75 * model.windowHeight
+    endFade = model.windowHeight
+    opacity = max 0.0 (min 1.0 ((model.scrollPosition - startFade) / (endFade - startFade)))
   in
     if opacity > 0.0 then
       div [ style [("opacity", (toString opacity))]]
         [ Navbar.config NavbarMsg
             |> Navbar.withAnimation
             |> Navbar.fixTop
-            |> Navbar.brand [ href "#"] [ text "Brand"]
+            |> Navbar.brand [ href "#"] [ text "Brand" ]
             |> Navbar.items
-                [ Navbar.itemLink [ href "#menu" ] [ text "Menu"]
-                , Navbar.itemLink [ href "#location" ] [ text "Location"]
-                , Navbar.itemLink [ href "#about" ] [ text "About"]
+                [ Navbar.itemLink [ href "#menu" ] [ text "Menu" ]
+                , Navbar.itemLink [ href "#location" ] [ text "Location" ]
+                , Navbar.itemLink [ href "#about" ] [ text "About" ]
                 ]
-            |> Navbar.view state
+            |> Navbar.view model.navbarState
         ]
       else
         text ""
 
+
 logoView : String -> Html Msg
-logoView title =
+logoView name =
   let
     enspace = String.fromChar (Char.fromCode 8194)
   in
@@ -137,7 +161,7 @@ logoView title =
       [ class "container logo-box d-flex flex-column justify-content-center" ]
       [ div [ ]
         [ img [ class "mx-auto d-block", src "/assets/food-e8350f.jpg" ] []
-        , h1 [ class "text-center", style [("margin-top", "1em")] ] [ text title ]
+        , h1 [ class "text-center", style [("margin-top", "1em")] ] [ text name ]
         , p [ class "logo-box-nav"]
             [ a [ href "#menu" ] [ text "Menu"]
             , text enspace
@@ -156,14 +180,23 @@ locationView =
   , p [] [ text "Majestic Square, Whanganui" ]
   ]
 
-aboutView : Html Msg
-aboutView =
-  div [ class "container section" ]
-  [ h2 [ id "about" ] [ text "About" ]
-  , p [] [ text "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In ultricies euismod elit, a aliquam ex sodales ut." ]
-  , p [] [ text "Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer consequat turpis sed sem viverra pellentesque. Quisque faucibus leo turpis, vel venenatis elit aliquet sit amet. Nullam at leo ut lacus convallis aliquet vitae sit amet ante. Aenean eu laoreet arcu, ut convallis purus." ]
-  , p [] [ text "Nulla facilisi. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nullam auctor ac mauris ac pellentesque." ]
-    ]
+aboutView : String -> Html Msg
+aboutView about =
+    div [ class "container section" ]
+    ([ h2 [ id "about" ] [ text "About" ] ] ++ (text2html about))
+
+
+text2html : String -> List (Html Msg)
+text2html str =
+  let
+    paras = String.split "\n\n" str
+    para2html = \ para ->
+                           String.split "\n" para
+                        |> List.map text
+                        |> List.intersperse (br [] [])
+                        |> p []
+  in
+    List.map para2html paras
 
 footer : Html Msg
 footer =
