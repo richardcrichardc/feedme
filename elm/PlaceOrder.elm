@@ -34,7 +34,7 @@ init value location =
     , Cmd.batch
         [ Scroll.scrollHash location
         , initialNavbarCmd
-        , Task.perform WindowHeight Window.height
+        , Task.perform WindowSize Window.size
         ]
     )
 
@@ -80,6 +80,7 @@ subscriptions model =
   Sub.batch
   [ Scroll.scrollPosition Scrolled
   , Navbar.subscriptions model.navbarState NavbarMsg
+  , Window.resizes WindowSize
   ]
 
 -- UPDATE
@@ -89,7 +90,7 @@ type Msg
   | MenuMsg Menu.Msg
   | NavbarMsg Navbar.State
   | Scrolled Int
-  | WindowHeight Int
+  | WindowSize Window.Size
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -108,8 +109,8 @@ update msg model =
     Scrolled scrollPosition ->
       ( { model | scrollPosition = toFloat scrollPosition }, Cmd.none )
 
-    WindowHeight windowHeight ->
-      ( { model | windowHeight = toFloat windowHeight }, Cmd.none )
+    WindowSize windowSize ->
+      ( { model | windowHeight = toFloat windowSize.height }, Cmd.none )
 
 
 -- VIEW
