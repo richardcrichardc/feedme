@@ -19,9 +19,10 @@ h2 {
   margin-bottom: 1rem }
 
 .section {
-  padding-top: 80px;
-
-  h2 { text-align: center; }
+  h2 {
+    text-align: center;
+    padding-top: 80px; // shift below navbar
+  }
 }
 
 .map {

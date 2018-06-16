@@ -96,7 +96,7 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     NewLocation location ->
-        (model, Scroll.scrollHash location)
+        (model, Cmd.none)
 
     MenuMsg (Menu.Add item) ->
       ( { model | order = Menu.orderAdd item model.order }
