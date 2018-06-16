@@ -124,7 +124,7 @@ view model =
       [ h2 [] [ text "Menu" ]
       , Html.map MenuMsg (Menu.menuView model.menu model.order)
       ]
-    , locationView
+    , locationView model
     , aboutView model.about
     , footer
     ]
@@ -173,13 +173,31 @@ logoView name =
         ]
       ]
 
-locationView : Html Msg
-locationView =
+locationView : Model -> Html Msg
+locationView model =
   div [ class "container section" ]
   [ h2 [ id "location" ] [ text "Location" ]
   , img [ class "map mx-auto d-block", src "https://maps.googleapis.com/maps/api/staticmap?markers=foodtastic,Whanganui&zoom=17&size=300x300&style=feature:poi.business|visibility:off&key=AIzaSyDBuq2YPG4anbgWG5K-IgayWR1dG9fSIFg" ] []
-  , p [] [ text "Majestic Square, Whanganui" ]
+  , div [ class "d-flex justify-content-center"]
+      [ dl []
+          [ dt [] [ text "Phone" ]
+          , dd [] [ text model.phone ]
+          , dt [] [ text "Address" ]
+          , dd [] ((strBr model.address1) ++ (strBr model.address2) ++ (strBr model.town))
+          ]
+      ]
   ]
+
+strBr : String -> List (Html Msg)
+strBr str =
+  let
+    trimmed = String.trim str
+  in
+    if String.isEmpty trimmed then
+      []
+    else
+      [ text trimmed, br [] []]
+
 
 aboutView : String -> Html Msg
 aboutView about =
