@@ -6,11 +6,19 @@ import (
   "feedme/server/templates"
 )
 
-func getFrontEnd(w http.ResponseWriter, req *http.Request) {
-  slug := mux.Vars(req)["slug"]
-  restaurant := fetchRestaurantBySlug(slug)
+type FrontEndFlags struct {
+    *Restaurant
+    GoogleStaticMapsKey string
+}
 
-  templates.ElmApp(w, req, "PlaceOrder", restaurant)
+func getFrontEnd(w http.ResponseWriter, req *http.Request) {
+  var flags FrontEndFlags
+
+  slug := mux.Vars(req)["slug"]
+  flags.Restaurant = fetchRestaurantBySlug(slug)
+  flags.GoogleStaticMapsKey = Config.GoogleStaticMapsKey
+
+  templates.ElmApp(w, req, "PlaceOrder", flags)
 }
 
 func getRouter(w http.ResponseWriter, req *http.Request) {

@@ -10,11 +10,8 @@ import (
   "feedme/server/editform"
 )
 
-var debugFlag bool
-
 func main() {
-  debugFlag  = true
-
+  loadConfig()
   templates.Init()
   initDB()
 

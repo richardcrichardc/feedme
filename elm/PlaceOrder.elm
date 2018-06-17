@@ -7,6 +7,7 @@ import Menu
 import Scroll
 import Window
 import Task
+import Http
 
 import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
@@ -50,8 +51,9 @@ type alias Model =
   , mapZoom : String
   , about : String
   , menu : Menu.Menu
-  , order : Menu.Order
+  , googleStaticMapsKey : String
 
+  , order : Menu.Order
   , navbarState : Navbar.State
   , scrollPosition : Float
   , windowHeight : Float
@@ -70,6 +72,7 @@ decodeModel initialNavbarState =
       |> required "MapZoom" string
       |> required "About" string
       |> required "Menu" Menu.menuDecoder
+      |> required "GoogleStaticMapsKey" string
       |> hardcoded []
       |> hardcoded initialNavbarState
       |> hardcoded 0.0
@@ -175,18 +178,25 @@ logoView name =
 
 locationView : Model -> Html Msg
 locationView model =
-  div [ class "container section" ]
-  [ h2 [ id "location" ] [ text "Location" ]
-  , img [ class "map mx-auto d-block", src "https://maps.googleapis.com/maps/api/staticmap?markers=foodtastic,Whanganui&zoom=17&size=300x300&style=feature:poi.business|visibility:off&key=AIzaSyDBuq2YPG4anbgWG5K-IgayWR1dG9fSIFg" ] []
-  , div [ class "d-flex justify-content-center"]
-      [ dl []
-          [ dt [] [ text "Phone" ]
-          , dd [] [ text model.phone ]
-          , dt [] [ text "Address" ]
-          , dd [] ((strBr model.address1) ++ (strBr model.address2) ++ (strBr model.town))
-          ]
-      ]
-  ]
+  let
+    mapUrl = "https://maps.googleapis.com/maps/api/staticmap"
+             ++ "?markers=" ++ (Http.encodeUri model.mapLocation)
+             ++ "&zoom=" ++ (Http.encodeUri model.mapZoom)
+             ++ "&size=300x300&style=feature:poi.business|visibility:off&"
+             ++ "key=" ++ (Http.encodeUri model.googleStaticMapsKey)
+  in
+    div [ class "container section" ]
+    [ h2 [ id "location" ] [ text "Location" ]
+    , img [ class "map mx-auto d-block", src mapUrl ] []
+    , div [ class "d-flex justify-content-center"]
+        [ dl []
+            [ dt [] [ text "Phone" ]
+            , dd [] [ text model.phone ]
+            , dt [] [ text "Address" ]
+            , dd [] ((strBr model.address1) ++ (strBr model.address2) ++ (strBr model.town))
+            ]
+        ]
+    ]
 
 strBr : String -> List (Html Msg)
 strBr str =

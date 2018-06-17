@@ -36,7 +36,7 @@ func recoverMiddleware(next http.Handler) http.Handler {
         w.WriteHeader(code)
         fmt.Fprintf(w, "%d %s\n", code, msg)
 
-        if debugFlag {
+        if Config.Debug {
           fmt.Fprintf(w, "\n%s\n%s", err, debug.Stack())
         }
       }
