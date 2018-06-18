@@ -18,7 +18,7 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
   flags.Restaurant = fetchRestaurantBySlug(slug)
   flags.GoogleStaticMapsKey = Config.GoogleStaticMapsKey
 
-  templates.ElmApp(w, req, "PlaceOrder", flags)
+  templates.ElmApp(w, req, "FrontEnd", flags)
 }
 
 func getRouter(w http.ResponseWriter, req *http.Request) {

@@ -1,4 +1,4 @@
-module PlaceOrder exposing (..)
+module FrontEnd exposing (..)
 
 import Util.Loader as Loader
 import Navigation
