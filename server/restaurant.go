@@ -24,9 +24,13 @@ type Restaurant struct {
   MapZoom string
 
   About string
+}
 
+type RestaurantAndMenu struct {
+  Restaurant
   Menu rawJson
 }
+
 
 func fetchRestaurant(id int) *Restaurant {
   var restaurant Restaurant
@@ -34,9 +38,32 @@ func fetchRestaurant(id int) *Restaurant {
   return &restaurant
 }
 
-func fetchRestaurantBySlug(slug string) *Restaurant {
-  var restaurant Restaurant
-  checkError(db.Get(&restaurant, "SELECT * FROM restaurants WHERE slug = $1", slug))
+func fetchRestaurantAndMenu(id int) *RestaurantAndMenu {
+  var restaurant RestaurantAndMenu
+
+  query := `
+    SELECT r.*, COALESCE(m.json, '') as menu
+    FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurant_id
+    WHERE r.id = $1
+    ORDER BY m.id desc
+    LIMIT 1`
+
+  checkError(db.Get(&restaurant, query, id))
+  return &restaurant
+}
+
+
+func fetchRestaurantAndMenuBySlug(slug string) *RestaurantAndMenu {
+  var restaurant RestaurantAndMenu
+
+  query := `
+    SELECT r.*, COALESCE(m.json, '[]') as menu
+    FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurant_id
+    WHERE slug = $1
+    ORDER BY m.id desc
+    LIMIT 1`
+
+  checkError(db.Get(&restaurant, query, slug))
   return &restaurant
 }
 
@@ -130,7 +157,19 @@ func editMenu(w http.ResponseWriter, req *http.Request) {
 
   switch req.Method {
   case "GET":
-    restaurant := fetchRestaurant(id)
+    restaurant := fetchRestaurantAndMenu(id)
+
+    if string(restaurant.Menu) == "" {
+      restaurant.Menu =rawJson(
+`[
+    {
+      "id": 1,
+      "name": "name",
+      "desc": "desc",
+      "price": 42.42
+    }
+  ]`)
+    }
 
     data := struct {
         Url string
@@ -150,7 +189,9 @@ func editMenu(w http.ResponseWriter, req *http.Request) {
     body, err := ioutil.ReadAll(req.Body)
     checkError(err)
 
-    _, err = db.Exec("UPDATE restaurants SET menu=$1 WHERE ID=$2", body, id)
+    // TODO validate menu
+
+    _, err = db.Exec("INSERT INTO menus(restaurant_id, json) VALUES($1,$2)", id, body)
     checkError(err)
 
     fmt.Fprint(w, "\"OK\"")

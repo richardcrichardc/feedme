@@ -198,8 +198,7 @@ menuOrderView : Model -> Html Msg
 menuOrderView model =
   div [ id "menu", class "container section" ]
     [ div [ id "order" ]
-        [ text (toString model.page)
-        ,  case model.page of
+        [ case model.page of
             PageOne -> menuView model
             PageTwo -> orderView model
         ]

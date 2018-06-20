@@ -7,7 +7,7 @@ import (
 )
 
 type FrontEndFlags struct {
-    *Restaurant
+    *RestaurantAndMenu
     GoogleStaticMapsKey string
 }
 
@@ -15,7 +15,7 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
   var flags FrontEndFlags
 
   slug := mux.Vars(req)["slug"]
-  flags.Restaurant = fetchRestaurantBySlug(slug)
+  flags.RestaurantAndMenu = fetchRestaurantAndMenuBySlug(slug)
   flags.GoogleStaticMapsKey = Config.GoogleStaticMapsKey
 
   templates.ElmApp(w, req, "FrontEnd", flags)
