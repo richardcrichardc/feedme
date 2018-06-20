@@ -13,6 +13,11 @@
   text-align: center;
 }
 
+.order {
+  min-height: 100vh;
+  text-align: center;
+}
+
 h1 { font-size: 3rem }
 h2 {
   font-size: 2.5rem;
@@ -24,6 +29,9 @@ h2 {
     padding-top: 80px; // shift below navbar
   }
 }
+
+button.order-now { margin-top: 80px }
+
 
 .map {
   width: 300px;

@@ -16,6 +16,7 @@ import Html exposing (..)
 import Html.Attributes exposing(id, class, src, style, href)
 
 import Bootstrap.Navbar as Navbar
+import Bootstrap.Button as Button
 
 main =
   Loader.programWithFlags2
@@ -30,8 +31,13 @@ init : Value -> Navigation.Location -> (Result String Model, Cmd Msg)
 init value location =
   let
     (initialNavbarState, initialNavbarCmd) = Navbar.initialState NavbarMsg
+    maybeModel = decodeValue (decodeModel initialNavbarState) value
+    maybeModelWithPage =
+      case maybeModel of
+        Ok model -> Ok { model | page = hashToPage location }
+        Err err -> Err err
   in
-    (decodeValue (decodeModel initialNavbarState) value
+    ( maybeModelWithPage
     , Cmd.batch
         [ Scroll.scrollHash location
         , initialNavbarCmd
@@ -57,8 +63,10 @@ type alias Model =
   , navbarState : Navbar.State
   , scrollPosition : Float
   , windowHeight : Float
+  , page : Page
   }
 
+type Page = PageOne | PageTwo
 
 decodeModel : Navbar.State -> Decoder Model
 decodeModel initialNavbarState =
@@ -73,10 +81,11 @@ decodeModel initialNavbarState =
       |> required "About" string
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
-      |> hardcoded []
+      |> hardcoded [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
       |> hardcoded initialNavbarState
       |> hardcoded 0.0
       |> hardcoded 0.0
+      |> hardcoded PageOne
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -99,7 +108,9 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     NewLocation location ->
-        (model, Cmd.none)
+      ({ model | page = hashToPage location }
+      , Cmd.none
+      )
 
     MenuMsg (Menu.Add item) ->
       ( { model | order = Menu.orderAdd item model.order }
@@ -116,6 +127,12 @@ update msg model =
       ( { model | windowHeight = toFloat windowSize.height }, Cmd.none )
 
 
+hashToPage : Navigation.Location -> Page
+hashToPage location =
+  case location.hash of
+    "#order" -> PageTwo
+    _ -> PageOne
+
 -- VIEW
 
 view : Model -> Html Msg
@@ -123,10 +140,7 @@ view model =
   div []
     [ navbarView model
     , logoView model.name
-    , div [ id "menu", class "container menu section" ]
-      [ h2 [] [ text "Menu" ]
-      , Html.map MenuMsg (Menu.menuView model.menu model.order)
-      ]
+    , menuOrderView model
     , locationView model
     , aboutView model.about
     , footer
@@ -147,6 +161,7 @@ navbarView model =
             |> Navbar.brand [ href "#"] [ text "Brand" ]
             |> Navbar.items
                 [ Navbar.itemLink [ href "#menu" ] [ text "Menu" ]
+                , Navbar.itemLink [ href "#order" ] [ text "Order"]
                 , Navbar.itemLink [ href "#location" ] [ text "Location" ]
                 , Navbar.itemLink [ href "#about" ] [ text "About" ]
                 ]
@@ -160,6 +175,7 @@ logoView : String -> Html Msg
 logoView name =
   let
     enspace = String.fromChar (Char.fromCode 8194)
+    emdash = String.fromChar (Char.fromCode 8212)
   in
     div
       [ class "container logo-box d-flex flex-column justify-content-center" ]
@@ -169,12 +185,44 @@ logoView name =
         , p [ class "logo-box-nav"]
             [ a [ href "#menu" ] [ text "Menu"]
             , text enspace
+            , a [ href "#order" ] [ text "Order"]
+            , text (" " ++ emdash ++ " ")
             , a [ href "#location" ] [ text "Location"]
             , text enspace
             , a [ href "#about" ] [ text "About"]
             ]
         ]
       ]
+
+menuOrderView : Model -> Html Msg
+menuOrderView model =
+  div [ id "menu", class "container section" ]
+    [ div [ id "order" ]
+        [ text (toString model.page)
+        ,  case model.page of
+            PageOne -> menuView model
+            PageTwo -> orderView model
+        ]
+    ]
+
+menuView : Model -> Html Msg
+menuView model =
+  div [ class "menu" ]
+    [ h2 [] [ text "Menu" ]
+    , Html.map MenuMsg (Menu.menuView model.menu model.order)
+    ]
+
+orderView : Model -> Html Msg
+orderView model =
+  div [ class "order" ]
+    [ div [ class "float-right" ]
+        [ Button.button [ Button.attrs [ class "order-now"] , Button.primary ]
+            [ text "Order Now" ]
+        ]
+    , h2 [] [ text "Your Order" ]
+    , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
+    ]
+
 
 locationView : Model -> Html Msg
 locationView model =
