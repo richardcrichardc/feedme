@@ -18,6 +18,7 @@ func main() {
   router := mux.NewRouter()
 
   router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
+  router.HandleFunc("/placeOrder", postPlaceOrder).Methods("POST")
 
   router.HandleFunc("/admin/restaurants", getRestaurants).Methods("GET")
   router.Handle("/admin/restaurants/{id}", editform.Handler(NewEditRestaurantForm))

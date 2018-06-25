@@ -4,6 +4,8 @@ import (
   "github.com/gorilla/mux"
   "net/http"
   "feedme/server/templates"
+  "fmt"
+  "io/ioutil"
 )
 
 type FrontEndFlags struct {
@@ -20,6 +22,14 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
 
   templates.ElmApp(w, req, "FrontEnd", flags)
 }
+
+func postPlaceOrder(w http.ResponseWriter, req *http.Request) {
+  body, _ := ioutil.ReadAll(req.Body)
+  fmt.Printf("PlaceOrder: %s\n", body)
+  fmt.Fprintf(w, `"OK"`)
+}
+
+
 
 func getRouter(w http.ResponseWriter, req *http.Request) {
   templates.ElmApp(w, req, "Router", "Nada")

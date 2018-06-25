@@ -9,9 +9,11 @@ import Window
 import Task
 import Http
 import Util.Form as Form
+import Util.ErrorDialog as ErrorDialog
 
-import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
+import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string, int)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
+import Json.Encode as Encode
 
 import Html exposing (..)
 import Html.Attributes exposing(id, class, src, style, href)
@@ -57,6 +59,7 @@ type alias Model =
   , mapLocation : String
   , mapZoom : String
   , about : String
+  , menuId : Int
   , menu : Menu.Menu
   , googleStaticMapsKey : String
 
@@ -65,10 +68,12 @@ type alias Model =
   , scrollPosition : Float
   , windowHeight : Float
   , page : Page
-  , ordering : Bool
+  , orderStatus : OrderStatus
+  , errorDialog : ErrorDialog.Dialog Msg
   }
 
 type Page = PageOne | PageTwo
+type OrderStatus = Deciding | Ordering | Ordered
 
 decodeModel : Navbar.State -> Decoder Model
 decodeModel initialNavbarState =
@@ -81,6 +86,7 @@ decodeModel initialNavbarState =
       |> required "MapLocation" string
       |> required "MapZoom" string
       |> required "About" string
+      |> required "MenuId" int
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
       |> hardcoded [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
@@ -88,7 +94,8 @@ decodeModel initialNavbarState =
       |> hardcoded 0.0
       |> hardcoded 0.0
       |> hardcoded PageOne
-      |> hardcoded False
+      |> hardcoded Deciding
+      |> hardcoded Nothing
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -107,6 +114,8 @@ type Msg
   | Scrolled Int
   | WindowSize Window.Size
   | PlaceOrder
+  | PlaceOrderResponse (Result Http.Error String)
+  | ToggleErrorDetails
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -131,7 +140,24 @@ update msg model =
       ( { model | windowHeight = toFloat windowSize.height }, Cmd.none )
 
     PlaceOrder ->
-      ( { model | ordering = True }, Cmd.none )
+      let
+        body = Http.jsonBody (encodeOrder model.menuId model.order)
+        request = Http.post "/placeOrder" body decodePostResponse
+      in
+        ({ model | orderStatus = Ordering }
+        , Http.send PlaceOrderResponse request)
+
+    PlaceOrderResponse (Ok _) ->
+        ({ model | orderStatus = Ordered}, Cmd.none)
+
+    PlaceOrderResponse (Err err) ->
+        ({ model |
+            errorDialog = ErrorDialog.dialog "Error" (Just ("Retry", PlaceOrder)) (Just (toString err, ToggleErrorDetails))}
+        , Cmd.none)
+
+    ToggleErrorDetails ->
+      ({ model | errorDialog = ErrorDialog.toggleDetails model.errorDialog }
+      , Cmd.none)
 
 
 hashToPage : Navigation.Location -> Page
@@ -140,12 +166,30 @@ hashToPage location =
     "#order" -> PageTwo
     _ -> PageOne
 
+
+encodeOrder : Int -> Menu.Order -> Value
+encodeOrder menuId order =
+  Encode.object
+      [ ("MenuId", Encode.int menuId)
+      , ("Order", Encode.list (List.map encodeOrderItem order))
+      ]
+
+encodeOrderItem : Menu.OrderItem -> Value
+encodeOrderItem item =
+    Encode.object
+      [ ("Id", Encode.int item.id)
+      , ("Qty", Encode.int item.qty)
+      ]
+
+decodePostResponse = string
+
 -- VIEW
 
 view : Model -> Html Msg
 view model =
   div []
-    [ navbarView model
+    [ ErrorDialog.view model.errorDialog
+    , navbarView model
     , logoView model.name
     , menuOrderView model
     , locationView model
@@ -222,7 +266,7 @@ orderView : Model -> Html Msg
 orderView model =
   div [ class "order" ]
     [ div [ class "float-right order-now" ]
-        [ Form.spinnerButton "Order Now" False model.ordering PlaceOrder ]
+        [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
     , h2 [] [ text "Your Order" ]
     , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
     ]

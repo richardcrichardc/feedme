@@ -28,6 +28,7 @@ type Restaurant struct {
 
 type RestaurantAndMenu struct {
   Restaurant
+  MenuId int
   Menu rawJson
 }
 
@@ -42,7 +43,7 @@ func fetchRestaurantAndMenu(id int) *RestaurantAndMenu {
   var restaurant RestaurantAndMenu
 
   query := `
-    SELECT r.*, COALESCE(m.json, '') as menu
+    SELECT r.*, m.id as MenuId, COALESCE(m.json, '') as menu
     FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurant_id
     WHERE r.id = $1
     ORDER BY m.id desc
@@ -57,7 +58,7 @@ func fetchRestaurantAndMenuBySlug(slug string) *RestaurantAndMenu {
   var restaurant RestaurantAndMenu
 
   query := `
-    SELECT r.*, COALESCE(m.json, '[]') as menu
+    SELECT r.*, m.id as MenuId, COALESCE(m.json, '[]') as menu
     FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurant_id
     WHERE slug = $1
     ORDER BY m.id desc
