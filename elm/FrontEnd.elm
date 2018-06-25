@@ -8,6 +8,7 @@ import Scroll
 import Window
 import Task
 import Http
+import Util.Form as Form
 
 import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
@@ -64,6 +65,7 @@ type alias Model =
   , scrollPosition : Float
   , windowHeight : Float
   , page : Page
+  , ordering : Bool
   }
 
 type Page = PageOne | PageTwo
@@ -86,6 +88,7 @@ decodeModel initialNavbarState =
       |> hardcoded 0.0
       |> hardcoded 0.0
       |> hardcoded PageOne
+      |> hardcoded False
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -103,6 +106,7 @@ type Msg
   | NavbarMsg Navbar.State
   | Scrolled Int
   | WindowSize Window.Size
+  | PlaceOrder
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -125,6 +129,9 @@ update msg model =
 
     WindowSize windowSize ->
       ( { model | windowHeight = toFloat windowSize.height }, Cmd.none )
+
+    PlaceOrder ->
+      ( { model | ordering = True }, Cmd.none )
 
 
 hashToPage : Navigation.Location -> Page
@@ -214,10 +221,8 @@ menuView model =
 orderView : Model -> Html Msg
 orderView model =
   div [ class "order" ]
-    [ div [ class "float-right" ]
-        [ Button.button [ Button.attrs [ class "order-now"] , Button.primary ]
-            [ text "Order Now" ]
-        ]
+    [ div [ class "float-right order-now" ]
+        [ Form.spinnerButton "Order Now" False model.ordering PlaceOrder ]
     , h2 [] [ text "Your Order" ]
     , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
     ]

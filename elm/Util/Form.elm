@@ -7,27 +7,33 @@ import Bootstrap.Utilities.Spacing as Spacing
 
 cancelSaveButtonView : Bool -> Bool -> msg -> msg -> Html msg
 cancelSaveButtonView saveDisabled saving cancelCmd saveCmd =
+  div
+    []
+    [ Button.button
+       [ Button.primary
+       , Button.disabled saving
+       , Button.onClick cancelCmd
+       ]
+       [ text "Cancel" ]
+    , spinnerButton "Save" saveDisabled saving saveCmd
+    ]
+
+
+spinnerButton : String -> Bool -> Bool -> msg -> Html msg
+spinnerButton title disabled spinning onClickCmd =
   let
-    saveHtml = if saving then
-                    [ text "Saving "
-                    , img [ Html.Attributes.class "spinner", Html.Attributes.src "/assets/save-spinner-ba4f7d.gif" ] []
-                    ]
-                  else
-                    [ text "Save" ]
+    innerHtml = if spinning then
+                [ text (title ++ " ")
+                , img [ Html.Attributes.class "spinner", Html.Attributes.src "/assets/save-spinner-ba4f7d.gif" ] []
+                ]
+              else
+                [ text title ]
   in
-    div
-      []
-      [ Button.button
-         [ Button.primary
-         , Button.disabled saving
-         , Button.onClick cancelCmd
-         ]
-         [ text "Cancel" ]
-      , Button.button
-         [ Button.primary
-         , Button.attrs [ Spacing.ml1 ]
-         , Button.disabled (saveDisabled || saving)
-         , Button.onClick saveCmd
-         ]
-         saveHtml
-      ]
+    Button.button
+     [ Button.primary
+     , Button.attrs [ Spacing.ml1 ]
+     , Button.disabled (disabled || spinning)
+     , Button.onClick onClickCmd
+     ]
+     innerHtml
+
