@@ -19,13 +19,34 @@
       var flags = {{.Flags}}
       var elmApp = Elm.{{.App}}.embed(node, flags)
 
-      elmApp.ports.scrollIntoView.subscribe(function(domId) {
-       var el = document.getElementById(domId)
-       el ? el.scrollIntoView() : null
-      })
+      elmApp.ports.scrollIntoView.subscribe(scrollIntoView)
+
+      function scrollIntoView(domId, time) {
+        time = time || 0;
+        if (time < 500) {
+          var el = document.getElementById(domId)
+          if (el) {
+            el.scrollIntoView()
+          } else {
+            setTimeout(function() { scrollIntoView(domId, time+10), 0})
+          }
+        }
+      }
 
       window.onscroll = function() {
-        elmApp.ports.scrollPosition.send(window.pageYOffset || document.body.scrollTop);
+        var bodyRect = document.body.getBoundingClientRect()
+        var menuDiv = document.getElementById('menu')
+        var yPosition = window.pageYOffset || document.body.scrollTop
+        var menuTop = 0
+        var menuHeight = 0
+
+        if (menuDiv) {
+          var menuRect = menuDiv.getBoundingClientRect()
+          menuTop = menuRect.y - bodyRect.y
+          menuHeight = menuRect.height
+        }
+
+        elmApp.ports.scrollPosition.send([yPosition, menuTop, menuHeight]);
       }
     </script>
   </body>

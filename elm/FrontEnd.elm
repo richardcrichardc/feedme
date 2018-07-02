@@ -7,6 +7,8 @@ import Menu
 import Scroll
 import Window
 import Task
+import Time
+import Process
 import Http
 import Util.Form as Form
 import Util.ErrorDialog as ErrorDialog
@@ -66,6 +68,8 @@ type alias Model =
   , order : Menu.Order
   , navbarState : Navbar.State
   , scrollPosition : Float
+  , menuTop : Float
+  , menuHeight : Float
   , windowHeight : Float
   , page : Page
   , orderStatus : OrderStatus
@@ -93,6 +97,8 @@ decodeModel initialNavbarState =
       |> hardcoded initialNavbarState
       |> hardcoded 0.0
       |> hardcoded 0.0
+      |> hardcoded 0.0
+      |> hardcoded 0.0
       |> hardcoded PageOne
       |> hardcoded Deciding
       |> hardcoded Nothing
@@ -111,7 +117,8 @@ type Msg
   = NewLocation Navigation.Location
   | MenuMsg Menu.Msg
   | NavbarMsg Navbar.State
-  | Scrolled Int
+  | Scrolled (Int, Int, Int)
+  | ScrollMenu
   | WindowSize Window.Size
   | PlaceOrder
   | PlaceOrderResponse (Result Http.Error String)
@@ -122,8 +129,11 @@ update msg model =
   case msg of
     NewLocation location ->
       ({ model | page = hashToPage location }
-      , Cmd.none
+      , Scroll.scrollHash location
       )
+
+    ScrollMenu ->
+      ( model, Scroll.scrollIntoView "menu" )
 
     MenuMsg (Menu.Add item) ->
       ( { model | order = Menu.orderAdd item model.order }
@@ -133,8 +143,12 @@ update msg model =
     NavbarMsg state ->
       ( { model | navbarState = state }, Cmd.none )
 
-    Scrolled scrollPosition ->
-      ( { model | scrollPosition = toFloat scrollPosition }, Cmd.none )
+    Scrolled (scrollPosition, menuTop, menuHeight) ->
+      ( { model |
+          scrollPosition = toFloat scrollPosition,
+          menuTop = toFloat menuTop,
+          menuHeight = toFloat menuHeight
+      }, Cmd.none )
 
     WindowSize windowSize ->
       ( { model | windowHeight = toFloat windowSize.height }, Cmd.none )
@@ -189,20 +203,38 @@ view : Model -> Html Msg
 view model =
   div []
     [ ErrorDialog.view model.errorDialog
-    , navbarView model
+    , case model.page of
+            PageOne -> pageOneView model
+            PageTwo -> orderView model
+    , footer
+    ]
+
+pageOneView : Model -> Html Msg
+pageOneView model =
+  div []
+    [ navbarView model
     , logoView model.name
-    , menuOrderView model
+    , menuView model
     , locationView model
     , aboutView model.about
-    , footer
     ]
 
 navbarView : Model -> Html Msg
 navbarView model =
   let
-    startFade = 0.75 * model.windowHeight
-    endFade = model.windowHeight
-    opacity = max 0.0 (min 1.0 ((model.scrollPosition - startFade) / (endFade - startFade)))
+    fadeDistance = 0.25 * model.windowHeight
+    endFadeIn = model.menuTop
+    startFadeIn = endFadeIn - fadeDistance
+    startFadeOut = model.menuTop + model.menuHeight
+    endFadeOut = startFadeOut + fadeDistance
+    fadeMiddle = endFadeIn + ((startFadeOut - endFadeIn) / 2)
+    unboundOpacity = if model.scrollPosition < fadeMiddle then
+                (model.scrollPosition - startFadeIn) / (endFadeIn - startFadeIn)
+              else
+                (model.scrollPosition - startFadeOut) / (startFadeOut - endFadeOut)
+    opacity = case model.page of
+                PageOne -> max 0.0 (min 1.0 unboundOpacity)
+                PageTwo -> 1.0
   in
     if opacity > 0.0 then
       div [ style [("opacity", (toString opacity))]]
@@ -245,32 +277,24 @@ logoView name =
         ]
       ]
 
-menuOrderView : Model -> Html Msg
-menuOrderView model =
-  div [ id "menu", class "container section" ]
-    [ div [ id "order" ]
-        [ case model.page of
-            PageOne -> menuView model
-            PageTwo -> orderView model
-        ]
-    ]
-
 menuView : Model -> Html Msg
 menuView model =
-  div [ class "menu" ]
+  div [ id "menu", class "container section menu" ]
     [ h2 [] [ text "Menu" ]
     , Html.map MenuMsg (Menu.menuView model.menu model.order)
     ]
 
 orderView : Model -> Html Msg
 orderView model =
-  div [ class "order" ]
-    [ div [ class "float-right order-now" ]
-        [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
-    , h2 [] [ text "Your Order" ]
-    , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
+  div []
+    [ navbarView model
+    , div [ id "order", class "container section order" ]
+      [ div [ class "float-right order-now" ]
+          [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
+      , h2 [] [ text "Your Order" ]
+      , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
+      ]
     ]
-
 
 locationView : Model -> Html Msg
 locationView model =
