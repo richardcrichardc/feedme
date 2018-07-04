@@ -19,19 +19,9 @@
       var flags = {{.Flags}}
       var elmApp = Elm.{{.App}}.embed(node, flags)
 
-      elmApp.ports.scrollIntoView.subscribe(scrollIntoView)
-
-      function scrollIntoView(domId, time) {
-        time = time || 0;
-        if (time < 500) {
-          var el = document.getElementById(domId)
-          if (el) {
-            el.scrollIntoView()
-          } else {
-            setTimeout(function() { scrollIntoView(domId, time+10), 0})
-          }
-        }
-      }
+      elmApp.ports.scrollIntoView.subscribe(function (domId) {
+        document.getElementById(domId).scrollIntoView()
+      })
 
       window.onscroll = function() {
         var bodyRect = document.body.getBoundingClientRect()

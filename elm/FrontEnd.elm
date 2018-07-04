@@ -129,7 +129,7 @@ update msg model =
   case msg of
     NewLocation location ->
       ({ model | page = hashToPage location }
-      , Scroll.scrollHash location
+      , Cmd.none
       )
 
     ScrollMenu ->
@@ -203,21 +203,14 @@ view : Model -> Html Msg
 view model =
   div []
     [ ErrorDialog.view model.errorDialog
-    , case model.page of
-            PageOne -> pageOneView model
-            PageTwo -> orderView model
+    , navbarView model
+    , logoView model.name
+    , placeOrderView model
+    , locationView model
+    , aboutView model.about
     , footer
     ]
 
-pageOneView : Model -> Html Msg
-pageOneView model =
-  div []
-    [ navbarView model
-    , logoView model.name
-    , menuView model
-    , locationView model
-    , aboutView model.about
-    ]
 
 navbarView : Model -> Html Msg
 navbarView model =
@@ -277,12 +270,26 @@ logoView name =
         ]
       ]
 
+
+placeOrderView : Model -> Html Msg
+placeOrderView model =
+  div [ id "menu" ]
+    [ div [ id "order" ]
+      [
+        case model.page of
+            PageOne -> menuView model
+            PageTwo -> orderView model
+      ]
+    ]
+
+
 menuView : Model -> Html Msg
 menuView model =
   div [ id "menu", class "container section menu" ]
     [ h2 [] [ text "Menu" ]
     , Html.map MenuMsg (Menu.menuView model.menu model.order)
     ]
+
 
 orderView : Model -> Html Msg
 orderView model =
@@ -295,6 +302,7 @@ orderView model =
       , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
       ]
     ]
+
 
 locationView : Model -> Html Msg
 locationView model =
