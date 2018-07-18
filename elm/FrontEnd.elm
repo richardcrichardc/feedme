@@ -18,10 +18,12 @@ import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, res
 import Json.Encode as Encode
 
 import Html exposing (..)
-import Html.Attributes exposing(id, class, src, style, href)
+import Html.Attributes exposing(id, class, src, style, href, placeholder)
 
-import Bootstrap.Navbar as Navbar
 import Bootstrap.Button as Button
+import Bootstrap.Form as Form
+import Bootstrap.Form.Input as Input
+import Bootstrap.Grid.Col as Col
 
 main =
   Loader.programWithFlags2
@@ -35,8 +37,7 @@ main =
 init : Value -> Navigation.Location -> (Result String Model, Cmd Msg)
 init value location =
   let
-    (initialNavbarState, initialNavbarCmd) = Navbar.initialState NavbarMsg
-    maybeModel = decodeValue (decodeModel initialNavbarState) value
+    maybeModel = decodeValue decodeModel value
     maybeModelWithPage =
       case maybeModel of
         Ok model -> Ok { model | page = hashToPage location }
@@ -45,7 +46,6 @@ init value location =
     ( maybeModelWithPage
     , Cmd.batch
         [ Scroll.scrollHash location
-        , initialNavbarCmd
         , Task.perform WindowSize Window.size
         ]
     )
@@ -66,7 +66,6 @@ type alias Model =
   , googleStaticMapsKey : String
 
   , order : Menu.Order
-  , navbarState : Navbar.State
   , scrollPosition : Float
   , menuTop : Float
   , menuHeight : Float
@@ -76,11 +75,11 @@ type alias Model =
   , errorDialog : ErrorDialog.Dialog Msg
   }
 
-type Page = PageOne | PageTwo
+type Page = PageOne | PageTwo | PageThree
 type OrderStatus = Deciding | Ordering | Ordered
 
-decodeModel : Navbar.State -> Decoder Model
-decodeModel initialNavbarState =
+decodeModel : Decoder Model
+decodeModel =
     decode Model
       |> required "Name" string
       |> required "Address1" string
@@ -94,7 +93,6 @@ decodeModel initialNavbarState =
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
       |> hardcoded [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
-      |> hardcoded initialNavbarState
       |> hardcoded 0.0
       |> hardcoded 0.0
       |> hardcoded 0.0
@@ -107,7 +105,6 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.batch
   [ Scroll.scrollPosition Scrolled
-  , Navbar.subscriptions model.navbarState NavbarMsg
   , Window.resizes WindowSize
   ]
 
@@ -116,7 +113,6 @@ subscriptions model =
 type Msg
   = NewLocation Navigation.Location
   | MenuMsg Menu.Msg
-  | NavbarMsg Navbar.State
   | Scrolled (Int, Int, Int)
   | ScrollMenu
   | WindowSize Window.Size
@@ -139,9 +135,6 @@ update msg model =
       ( { model | order = Menu.orderAdd item model.order }
       , Cmd.none
       )
-
-    NavbarMsg state ->
-      ( { model | navbarState = state }, Cmd.none )
 
     Scrolled (scrollPosition, menuTop, menuHeight) ->
       ( { model |
@@ -178,6 +171,7 @@ hashToPage : Navigation.Location -> Page
 hashToPage location =
   case location.hash of
     "#order" -> PageTwo
+    "#confirm" -> PageThree
     _ -> PageOne
 
 
@@ -215,6 +209,29 @@ view model =
 navbarView : Model -> Html Msg
 navbarView model =
   let
+    opacity = navbarOpacity model
+  in
+    if opacity > 0.0 then
+      div [ class "bg-light fixed-top", style [("opacity", (toString opacity)) ] ]
+        [ div [ class "container px-3 py-2 text-right" ]
+            <| case model.page of
+                PageOne ->
+                  [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "Review Order »" ] ]
+                PageTwo ->
+                  [ Button.linkButton [ Button.primary, Button.attrs [ href "#menu", class "mr-2"] ] [ text "« Menu" ]
+                  , Button.linkButton [ Button.primary, Button.attrs [ href "#confirm" ] ] [ text "Confirm »" ]
+                  ]
+                PageThree ->
+                  [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "« Review Order" ] ]
+
+          ]
+        else
+          text ""
+
+
+navbarOpacity : Model -> Float
+navbarOpacity model =
+  let
     fadeDistance = 0.25 * model.windowHeight
     endFadeIn = model.menuTop
     startFadeIn = endFadeIn - fadeDistance
@@ -225,33 +242,14 @@ navbarView model =
                 (model.scrollPosition - startFadeIn) / (endFadeIn - startFadeIn)
               else
                 (model.scrollPosition - startFadeOut) / (startFadeOut - endFadeOut)
-    opacity = case model.page of
-                PageOne -> max 0.0 (min 1.0 unboundOpacity)
-                PageTwo -> 1.0
   in
-    if opacity > 0.0 then
-      div [ style [("opacity", (toString opacity))]]
-        [ Navbar.config NavbarMsg
-            |> Navbar.withAnimation
-            |> Navbar.fixTop
-            |> Navbar.brand [ href "#"] [ text "Brand" ]
-            |> Navbar.items
-                [ Navbar.itemLink [ href "#menu" ] [ text "Menu" ]
-                , Navbar.itemLink [ href "#order" ] [ text "Order"]
-                , Navbar.itemLink [ href "#location" ] [ text "Location" ]
-                , Navbar.itemLink [ href "#about" ] [ text "About" ]
-                ]
-            |> Navbar.view model.navbarState
-        ]
-      else
-        text ""
+    max 0.0 (min 1.0 unboundOpacity)
 
 
 logoView : String -> Html Msg
 logoView name =
   let
     enspace = String.fromChar (Char.fromCode 8194)
-    emdash = String.fromChar (Char.fromCode 8212)
   in
     div
       [ class "container logo-box d-flex flex-column justify-content-center" ]
@@ -261,8 +259,6 @@ logoView name =
         , p [ class "logo-box-nav"]
             [ a [ href "#menu" ] [ text "Menu"]
             , text enspace
-            , a [ href "#order" ] [ text "Order"]
-            , text (" " ++ emdash ++ " ")
             , a [ href "#location" ] [ text "Location"]
             , text enspace
             , a [ href "#about" ] [ text "About"]
@@ -275,17 +271,18 @@ placeOrderView : Model -> Html Msg
 placeOrderView model =
   div [ id "menu" ]
     [ div [ id "order" ]
-      [
-        case model.page of
-            PageOne -> menuView model
-            PageTwo -> orderView model
-      ]
-    ]
+      [ div [ id "confirm" ]
+        [
+          case model.page of
+              PageOne -> menuView model
+              PageTwo -> orderView model
+              PageThree -> confirmView model
+    ]]]
 
 
 menuView : Model -> Html Msg
 menuView model =
-  div [ id "menu", class "container section menu" ]
+  div [ class "container section menu" ]
     [ h2 [] [ text "Menu" ]
     , Html.map MenuMsg (Menu.menuView model.menu model.order)
     ]
@@ -295,14 +292,44 @@ orderView : Model -> Html Msg
 orderView model =
   div []
     [ navbarView model
-    , div [ id "order", class "container section order" ]
-      [ div [ class "float-right order-now" ]
-          [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
-      , h2 [] [ text "Your Order" ]
+    , div [ class "container section order" ]
+      --[ div [ class "float-right order-now" ]
+      --    [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
+      [ h2 [] [ text "Review Order" ]
       , Html.map MenuMsg (Menu.invoiceView model.menu model.order)
       ]
     ]
 
+confirmView : Model -> Html Msg
+confirmView model =
+  let
+    (totalItems, totalPrice) = Menu.orderTotals model.menu model.order
+  in
+    div []
+      [ navbarView model
+      , div [ class "container section confirm" ]
+          [ h2 [] [ text "Confirm Order" ]
+          , p [] [ text "Your order contains "
+                 , strong [] [ text totalItems ]
+                 , text " items and has total of "
+                 , strong [] [ text totalPrice ]
+                 , text "."
+                 ]
+          , Form.form []
+            [ Form.row []
+              [ Form.colLabel [ Col.sm2 ] [ text "Name" ]
+              , Form.col [ Col.sm10 ]
+                  [ Input.text [] ]
+              ]
+            , Form.row []
+              [ Form.colLabel [ Col.sm2 ] [ text "Telephone" ]
+              , Form.col [ Col.sm10 ]
+                  [ Input.text [] ]
+              ]
+            ]
+          , p [] [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
+          ]
+      ]
 
 locationView : Model -> Html Msg
 locationView model =

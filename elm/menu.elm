@@ -113,8 +113,19 @@ itemQty id order =
       else
         itemQty id xs
 
+
 priceString : Float -> String
 priceString price = "$" ++ (format usLocale price)
+
+
+orderTotals : Menu -> Order -> (String, String)
+orderTotals menu order =
+  let
+    invoice = orderInvoice menu order
+    totalItems = List.sum (List.map .qty invoice)
+    totalPrice = List.sum (List.map .total invoice)
+  in
+    (toString totalItems, priceString totalPrice)
 
 
 invoiceView : Menu -> Order -> Html Msg
