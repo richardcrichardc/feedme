@@ -8,6 +8,7 @@ import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (usLocale)
 import Bootstrap.Button as Button
 import Bootstrap.Table as Table
+import Bootstrap.Utilities.Spacing as Spacing
 
 -- types
 
@@ -99,7 +100,8 @@ itemView order item =
       , p [] [ text item.desc ]
       , p [] [
               qtyHtml
-             , Button.button [ Button.primary, Button.onClick (Add { id=item.id, qty=1 })] [ text "Add" ]
+             , Button.button [ Button.primary, Button.onClick (Add { id=item.id, qty=1 })] [ text "+" ]
+             , Button.button [ Button.primary, Button.attrs [ Spacing.ml1 ], Button.onClick (Add { id=item.id, qty=-1 })] [ text "-" ]
              ]
       ]
 
