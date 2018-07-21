@@ -66,6 +66,9 @@ type alias Model =
   , googleStaticMapsKey : String
 
   , order : Menu.Order
+  , confirmName : String
+  , confirmPhone : String
+
   , scrollPosition : Float
   , menuTop : Float
   , menuHeight : Float
@@ -93,6 +96,8 @@ decodeModel =
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
       |> hardcoded [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
+      |> hardcoded ""
+      |> hardcoded ""
       |> hardcoded 0.0
       |> hardcoded 0.0
       |> hardcoded 0.0
@@ -119,6 +124,8 @@ type Msg
   | PlaceOrder
   | PlaceOrderResponse (Result Http.Error String)
   | ToggleErrorDetails
+  | UpdateConfirmName String
+  | UpdateConfirmPhone String
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -148,7 +155,7 @@ update msg model =
 
     PlaceOrder ->
       let
-        body = Http.jsonBody (encodeOrder model.menuId model.order)
+        body = Http.jsonBody (encodeOrder model.confirmName model.confirmPhone model.menuId model.order)
         request = Http.post "/placeOrder" body decodePostResponse
       in
         ({ model | orderStatus = Ordering }
@@ -166,6 +173,12 @@ update msg model =
       ({ model | errorDialog = ErrorDialog.toggleDetails model.errorDialog }
       , Cmd.none)
 
+    UpdateConfirmName name ->
+      ({ model | confirmName = name}, Cmd.none)
+
+    UpdateConfirmPhone phone ->
+      ({ model | confirmPhone = phone}, Cmd.none)
+
 
 hashToPage : Navigation.Location -> Page
 hashToPage location =
@@ -175,10 +188,12 @@ hashToPage location =
     _ -> PageOne
 
 
-encodeOrder : Int -> Menu.Order -> Value
-encodeOrder menuId order =
+encodeOrder : String -> String -> Int -> Menu.Order -> Value
+encodeOrder name phone menuId order =
   Encode.object
-      [ ("MenuId", Encode.int menuId)
+      [ ("Name", Encode.string name)
+      , ("Telephone", Encode.string phone)
+      , ("MenuId", Encode.int menuId)
       , ("Order", Encode.list (List.map encodeOrderItem order))
       ]
 
@@ -223,7 +238,6 @@ navbarView model =
                   ]
                 PageThree ->
                   [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "« Review Order" ] ]
-
           ]
         else
           text ""
@@ -304,6 +318,8 @@ confirmView : Model -> Html Msg
 confirmView model =
   let
     (totalItems, totalPrice) = Menu.orderTotals model.menu model.order
+    submitDisabled = String.isEmpty (String.trim model.confirmName)
+                   || String.isEmpty (String.trim model.confirmPhone)
   in
     div []
       [ navbarView model
@@ -319,15 +335,15 @@ confirmView model =
             [ Form.row []
               [ Form.colLabel [ Col.sm2 ] [ text "Name" ]
               , Form.col [ Col.sm10 ]
-                  [ Input.text [] ]
+                  [ Input.text [ Input.value model.confirmName, Input.onInput UpdateConfirmName ] ]
               ]
             , Form.row []
               [ Form.colLabel [ Col.sm2 ] [ text "Telephone" ]
               , Form.col [ Col.sm10 ]
-                  [ Input.text [] ]
+                  [ Input.text [ Input.value model.confirmPhone, Input.onInput UpdateConfirmPhone ] ]
               ]
             ]
-          , p [] [ Form.spinnerButton "Order Now" False (model.orderStatus == Ordering) PlaceOrder ]
+          , p [] [ Form.spinnerButton "Order Now" submitDisabled (model.orderStatus == Ordering) PlaceOrder ]
           ]
       ]
 
