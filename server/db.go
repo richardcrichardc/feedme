@@ -29,8 +29,8 @@ func initDB() {
 
   schema := []string {
     `CREATE TABLE restaurants (
-      id serial primary key,
-      slug text,
+      id serial PRIMARY KEY,
+      slug text NOT NULL,
       name text,
       address1 text,
       address2 text,
@@ -39,16 +39,26 @@ func initDB() {
       mapLocation text,
       mapZoom text,
       about text,
-      menu text
+      nextOrderId int NOT NULL DEFAULT 1
     )`,
     `CREATE TABLE menus (
       id SERIAL PRIMARY KEY,
-      restaurant_id int references restaurants(id),
-      json text
+      restaurantId int REFERENCES restaurants(id),
+      items text NOT NULL
     )`,
-    `INSERT INTO menus (restaurant_id, json) SELECT id, menu FROM restaurants`,
-    `ALTER TABLE restaurants DROP COLUMN menu`,
-  }
+    `CREATE TABLE orders (
+      restaurantId int,
+      number int,
+      created timestamp NOT NULL,
+      name text NOT NULL,
+      phone text NOT NULL,
+      menu_id int NOT NULL,
+      items text NOT NULL,
+      subtotal numeric(11,2) NOT NULL,
+      gst numeric(11,2) NOT NULL,
+      PRIMARY KEY (restaurantId, number)
+     )`,
+   }
 
   for i := initialSchemaVersion; i < len(schema); i ++ {
     stmt := schema[i]

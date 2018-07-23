@@ -6,6 +6,7 @@ import (
   "feedme/server/templates"
   "fmt"
   "io/ioutil"
+  "encoding/json"
 )
 
 type FrontEndFlags struct {
@@ -24,8 +25,18 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request) {
 }
 
 func postPlaceOrder(w http.ResponseWriter, req *http.Request) {
+  var order Order
+
   body, _ := ioutil.ReadAll(req.Body)
-  fmt.Printf("PlaceOrder: %s\n", body)
+  checkError(json.Unmarshal(body, &order))
+  menu := fetchMenu(order.MenuId)
+  //restaurant := fetchRestaurant(menu.RestaurantId)
+
+  order.Recalc(menu)
+  order.Create(req.Context())
+
+  fmt.Printf("PlaceOrder:\n%s\n%#v\n%#v\n", body, order, menu)
+
   fmt.Fprintf(w, `"OK"`)
 }
 

@@ -39,16 +39,10 @@ func fetchRestaurant(id int) *Restaurant {
   return &restaurant
 }
 
+
 func fetchRestaurantAndMenu(id int) *RestaurantAndMenu {
   var restaurant RestaurantAndMenu
-
-  query := `
-    SELECT r.*, m.id as MenuId, COALESCE(m.json, '') as menu
-    FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurant_id
-    WHERE r.id = $1
-    ORDER BY m.id desc
-    LIMIT 1`
-
+  query := fetchRestaurantAndMenuQuery("r.id")
   checkError(db.Get(&restaurant, query, id))
   return &restaurant
 }
@@ -56,16 +50,31 @@ func fetchRestaurantAndMenu(id int) *RestaurantAndMenu {
 
 func fetchRestaurantAndMenuBySlug(slug string) *RestaurantAndMenu {
   var restaurant RestaurantAndMenu
-
-  query := `
-    SELECT r.*, m.id as MenuId, COALESCE(m.json, '[]') as menu
-    FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurant_id
-    WHERE slug = $1
-    ORDER BY m.id desc
-    LIMIT 1`
-
+  query := fetchRestaurantAndMenuQuery("slug")
   checkError(db.Get(&restaurant, query, slug))
   return &restaurant
+}
+
+
+func fetchRestaurantAndMenuQuery(key string) string {
+  return `
+    SELECT
+      r.id,
+      r.slug,
+      r.name,
+      r.address1,
+      r.address2,
+      r.town,
+      r.phone,
+      r.mapLocation,
+      r.mapZoom,
+      r.about,
+      COALESCE(m.id, -1) as MenuId,
+      COALESCE(m.items, '[]') as menu
+    FROM restaurants r LEFT JOIN menus m ON r.id=m.restaurantId
+    WHERE ` + key + ` = $1
+    ORDER BY m.id desc
+    LIMIT 1`
 }
 
 // List Restaurants
@@ -77,7 +86,7 @@ type RestaurantSummary struct {
 }
 
 func getRestaurants(w http.ResponseWriter, req *http.Request) {
-  var restaurants []RestaurantSummary
+  restaurants := make([]RestaurantSummary, 0)
   checkError(db.Select(&restaurants, "SELECT id, slug, name FROM restaurants ORDER BY name"))
   templates.ElmApp(w, req, "Restaurants", restaurants)
 }
@@ -192,7 +201,7 @@ func editMenu(w http.ResponseWriter, req *http.Request) {
 
     // TODO validate menu
 
-    _, err = db.Exec("INSERT INTO menus(restaurant_id, json) VALUES($1,$2)", id, body)
+    _, err = db.Exec("INSERT INTO menus(restaurantId, json) VALUES($1,$2)", id, body)
     checkError(err)
 
     fmt.Fprint(w, "\"OK\"")
