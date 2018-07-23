@@ -158,7 +158,10 @@ update msg model =
         body = Http.jsonBody (encodeOrder model.confirmName model.confirmPhone model.menuId model.order)
         request = Http.post "/placeOrder" body decodePostResponse
       in
-        ({ model | orderStatus = Ordering }
+        ({ model |
+            orderStatus = Ordering,
+            errorDialog = Nothing
+          }
         , Http.send PlaceOrderResponse request)
 
     PlaceOrderResponse (Ok _) ->
@@ -194,7 +197,7 @@ encodeOrder name phone menuId order =
       [ ("Name", Encode.string name)
       , ("Telephone", Encode.string phone)
       , ("MenuId", Encode.int menuId)
-      , ("Order", Encode.list (List.map encodeOrderItem order))
+      , ("Items", Encode.list (List.map encodeOrderItem order))
       ]
 
 encodeOrderItem : Menu.OrderItem -> Value

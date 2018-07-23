@@ -4,13 +4,13 @@ import Json.Decode as Decode
 import Html exposing (..)
 import Html.Attributes exposing (style, class, src, id, href)
 import Html.Events exposing (onClick)
-import FormatNumber exposing (format)
-import FormatNumber.Locales exposing (usLocale)
 import Bootstrap.Button as Button
 import Bootstrap.Table as Table
 import Bootstrap.Utilities.Spacing as Spacing
 
 -- types
+
+type alias Money = Int
 
 type Msg
     = Add OrderItem
@@ -21,7 +21,7 @@ type alias MenuItem =
   { id : Int
   , name : String
   , desc : String
-  , price : Float
+  , price : Money
   }
 
 type alias Order = List OrderItem
@@ -36,8 +36,8 @@ type alias Invoice = List InvoiceLine
 type alias InvoiceLine =
   { qty : Int
   , desc : String
-  , each : Float
-  , total : Float
+  , each : Int
+  , total : Money
   }
 
 
@@ -66,9 +66,10 @@ itemDecoder = Decode.map4 MenuItem
                 (Decode.field "id" Decode.int)
                 (Decode.field "name" Decode.string)
                 (Decode.field "desc" Decode.string)
-                (Decode.field "price" Decode.float)
+                (Decode.field "price" Decode.int)
 
 -- views
+
 
 maybeMenuView : Maybe Menu -> Order -> Html Msg
 maybeMenuView menu_ order =
@@ -81,7 +82,11 @@ maybeMenuView menu_ order =
 
 menuView : Menu -> Order -> Html Msg
 menuView menu order =
-      div [] [ div [] (List.map (itemView order) menu) ]
+  if menu == [] then
+    text "Empty menu"
+  else
+    div [] [ div [] (List.map (itemView order) menu) ]
+
 
 itemView : Order -> MenuItem -> Html Msg
 itemView order item =
@@ -116,8 +121,18 @@ itemQty id order =
         itemQty id xs
 
 
-priceString : Float -> String
-priceString price = "$" ++ (format usLocale price)
+priceString : Money -> String
+priceString price =
+  let
+    dollarsStr = toString (price // 100)
+    cents = rem (abs price) 100
+    centsStr =
+      if cents < 10 then
+        "0" ++ (toString cents)
+      else
+        toString cents
+  in
+  "$" ++ dollarsStr ++ "." ++ centsStr
 
 
 orderTotals : Menu -> Order -> (String, String)
@@ -154,7 +169,7 @@ invoiceLineView line =
     , Table.td [ tdAlignRight ] [ text (priceString line.total) ]
     ]
 
-invoiceTotalLine : Float -> Table.Row Msg
+invoiceTotalLine : Money -> Table.Row Msg
 invoiceTotalLine total =
   Table.tr []
     [ Table.td [] []
@@ -174,13 +189,13 @@ orderItemInvoiceLine menu orderItem =
     { qty = orderItem.qty,
       desc = menuItem.name,
       each = menuItem.price,
-      total = (toFloat orderItem.qty) * menuItem.price
+      total = orderItem.qty * menuItem.price
     }
 
 menuItemForId : List MenuItem -> Int -> MenuItem
 menuItemForId items id =
   case items of
-    [] -> MenuItem -1 "Error" "Error" -1.0
+    [] -> MenuItem -1 "Error" "Error" -1
     (x::xs) ->
       if x.id == id then
         x
