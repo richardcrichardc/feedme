@@ -92,7 +92,7 @@ decodeModel =
       |> required "MapLocation" string
       |> required "MapZoom" string
       |> required "About" string
-      |> required "MenuId" int
+      |> required "MenuID" int
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
       |> hardcoded [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
@@ -227,7 +227,7 @@ view model =
 navbarView : Model -> Html Msg
 navbarView model =
   let
-    opacity = navbarOpacity model
+    opacity = 1.0 --navbarOpacity model
   in
     if opacity > 0.0 then
       div [ class "bg-light fixed-top", style [("opacity", (toString opacity)) ] ]

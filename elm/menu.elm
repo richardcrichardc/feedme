@@ -63,10 +63,10 @@ menuDecoder = Decode.list itemDecoder
 
 itemDecoder: Decode.Decoder MenuItem
 itemDecoder = Decode.map4 MenuItem
-                (Decode.field "id" Decode.int)
-                (Decode.field "name" Decode.string)
-                (Decode.field "desc" Decode.string)
-                (Decode.field "price" Decode.int)
+                (Decode.field "Id" Decode.int)
+                (Decode.field "Name" Decode.string)
+                (Decode.field "Desc" Decode.string)
+                (Decode.field "Price" Decode.int)
 
 -- views
 

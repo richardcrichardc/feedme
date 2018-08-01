@@ -21,10 +21,8 @@ func main() {
   router.HandleFunc("/placeOrder", postPlaceOrder).Methods("POST")
 
   router.HandleFunc("/admin/restaurants", getRestaurants).Methods("GET")
-  router.Handle("/admin/restaurants/{id}", editform.Handler(NewEditRestaurantForm))
+  router.Handle("/admin/restaurants/{id}", editform.Handler(db, NewEditRestaurantForm))
   router.HandleFunc("/admin/restaurants/{id}/menu", editMenu).Methods("GET", "POST")
-
-  router.HandleFunc("/admin/router", getRouter).Methods("GET")
 
 
   router.PathPrefix("/assets/").Handler(templates.AssetsHandler())

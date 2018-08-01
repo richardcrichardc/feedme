@@ -10,15 +10,21 @@ import (
 )
 
 type FrontEndFlags struct {
-    *RestaurantAndMenu
-    GoogleStaticMapsKey string
+  Restaurant
+  MenuID uint
+  Menu MenuItems
+  GoogleStaticMapsKey string
 }
 
 func getFrontEnd(w http.ResponseWriter, req *http.Request) {
   var flags FrontEndFlags
 
   slug := mux.Vars(req)["slug"]
-  flags.RestaurantAndMenu = fetchRestaurantAndMenuBySlug(slug)
+  menu := fetchMenuForRestaurantSlug(slug)
+
+  flags.Restaurant = menu.Restaurant
+  flags.MenuID = menu.ID
+  flags.Menu = menu.Items
   flags.GoogleStaticMapsKey = Config.GoogleStaticMapsKey
 
   templates.ElmApp(w, req, "FrontEnd", flags)
@@ -29,19 +35,23 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request) {
 
   body, _ := ioutil.ReadAll(req.Body)
   checkError(json.Unmarshal(body, &order))
-  menu := fetchMenu(order.MenuId)
-  //restaurant := fetchRestaurant(menu.RestaurantId)
+  fmt.Printf("Order: %#v", order)
+  order.Menu = *fetchMenu(order.MenuID)
+  order.RestaurantID = order.Menu.RestaurantID
 
-  order.Recalc(menu)
-  order.Create(req.Context())
+  order.Recalc()
 
-  fmt.Printf("PlaceOrder:\n%s\n%#v\n%#v\n", body, order, menu)
+  query := "UPDATE restaurants SET last_order_number=last_order_number+1 WHERE id=$1 RETURNING last_order_number"
+
+  checkError(db.CommonDB().QueryRow(query, order.RestaurantID).Scan(&order.Number))
+
+  checkError(db.Create(&order).Error)
+
+
+  fmt.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
 
   fmt.Fprintf(w, `"OK"`)
 }
 
 
 
-func getRouter(w http.ResponseWriter, req *http.Request) {
-  templates.ElmApp(w, req, "Router", "Nada")
-}

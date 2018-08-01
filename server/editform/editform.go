@@ -1,6 +1,7 @@
 package editform
 
 import (
+  "github.com/jinzhu/gorm"
   "net/http"
   "github.com/gorilla/mux"
   "strconv"
@@ -15,15 +16,13 @@ import (
 
 type Form interface {
   New() interface{}
-  Fetch(id int) interface{}
   Layout(*Instance) Layout
   Validate(*Instance)
-  Save(*Instance)
 }
 
 type Instance struct {
   Form Form
-  Id int
+  Id uint
   Data interface{}
 
   Submission map[string]string
@@ -32,7 +31,7 @@ type Instance struct {
 
 type FormFactory func() Form
 
-func Handler(factory FormFactory) http.Handler {
+func Handler(db *gorm.DB, factory FormFactory) http.Handler {
   return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
     f := factory()
     fi := new(Instance)
@@ -42,10 +41,10 @@ func Handler(factory FormFactory) http.Handler {
 
     switch req.Method {
     case "GET":
-      if fi.Id == 0 {
-        fi.Data = f.New()
-      } else {
-        fi.Data = f.Fetch(fi.Id)
+      fi.Data = f.New()
+
+      if fi.Id != 0 {
+        checkError(db.First(fi.Data, fi.Id).Error)
       }
 
       layout := f.Layout(fi)
@@ -86,7 +85,9 @@ func Handler(factory FormFactory) http.Handler {
       case "SAVE":
         time.Sleep(1*time.Second) // TODO remove me
 
-        f.Save(fi)
+        SetID(fi.Data, fi.Id)
+        checkError(db.Save(fi.Data).Error)
+
         json.NewEncoder(w).Encode(SubmissionResult{"SAVED", nil})
       default:
         panic(templates.BadRequest("Unknown action: " + sub.Action))
@@ -98,7 +99,7 @@ func Handler(factory FormFactory) http.Handler {
   })
 }
 
-func GetId(req *http.Request) int {
+func GetId(req *http.Request) uint {
   val := mux.Vars(req)["id"]
 
   if val == "new" {
@@ -111,7 +112,7 @@ func GetId(req *http.Request) int {
     panic(templates.BadRequest("Expecting 'new' or integer id, received: " + val))
   }
 
-  return id
+  return uint(id)
 }
 
 
@@ -236,3 +237,13 @@ type SubmissionResult struct {
   Errors map[string][]string
 }
 
+
+func SetID(data interface{}, ID uint) {
+  field := reflect.Indirect(reflect.ValueOf(data)).FieldByName("ID")
+
+  if !field.IsValid() {
+    log.Panic("Instance data is missing ID")
+  }
+
+  field.Set(reflect.ValueOf(ID))
+}

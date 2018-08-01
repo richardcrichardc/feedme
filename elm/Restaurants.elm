@@ -34,7 +34,7 @@ decodeModel = list decodeRestaurant
 
 decodeRestaurant : Decoder Restaurant
 decodeRestaurant = Decode.map3 Restaurant
-    (field "Id" int )
+    (field "ID" int )
     (field "Slug" string)
     (field "Name" string)
 

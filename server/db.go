@@ -2,224 +2,114 @@ package main
 
 
 import (
-  "github.com/jmoiron/sqlx"
+  "github.com/jinzhu/gorm"
   _ "github.com/lib/pq"
-  "strings"
-  "reflect"
+  "gopkg.in/gormigrate.v1"
   "log"
-  "fmt"
-  "strconv"
-  "database/sql"
+  "time"
 )
 
-var db *sqlx.DB
+var db *gorm.DB
 
 func initDB() {
-  db = sqlx.MustOpen("postgres", "dbname=feedme sslmode=disable")
+  var err error
 
-  tx := db.MustBegin()
-
-  tx.MustExec(
-    `CREATE TABLE IF NOT EXISTS kv (
-      k text PRIMARY KEY,
-      v text
-    )` )
-
-  initialSchemaVersion := kvGetInt(tx, "schemaVersion", 0)
-
-  schema := []string {
-    `CREATE TABLE restaurants (
-      id serial PRIMARY KEY,
-      slug text NOT NULL,
-      name text,
-      address1 text,
-      address2 text,
-      town text,
-      phone text,
-      mapLocation text,
-      mapZoom text,
-      about text,
-      nextOrderId int NOT NULL DEFAULT 1
-    )`,
-    `CREATE TABLE menus (
-      id SERIAL PRIMARY KEY,
-      restaurantId int REFERENCES restaurants(id),
-      items text NOT NULL
-    )`,
-    `CREATE TABLE orders (
-      restaurantId int,
-      number int,
-      created timestamp NOT NULL,
-      name text NOT NULL,
-      phone text NOT NULL,
-      menu_id int NOT NULL,
-      items text NOT NULL,
-      subtotal numeric(11,2) NOT NULL,
-      gst numeric(11,2) NOT NULL,
-      PRIMARY KEY (restaurantId, number)
-     )`,
-   }
-
-  for i := initialSchemaVersion; i < len(schema); i ++ {
-    stmt := schema[i]
-    log.Printf("DB migration %d:\n%s", i, stmt)
-    tx.MustExec(stmt)
-  }
-
-  kvSetInt(tx, "schemaVersion", len(schema))
-  checkError(tx.Commit())
-
-}
-
-func kvGet(tx *sqlx.Tx, key string, defaultValue string) string {
-  var value string
-  err := tx.Get(&value, "SELECT v FROM kv WHERE k=$1", key)
-
-  if err == sql.ErrNoRows {
-    return defaultValue
-  }
-
+  db, err = gorm.Open("postgres", "dbname=feedme sslmode=disable")
   checkError(err)
-  return value
-}
+  log.Printf("DB: %v", db)
 
-func kvSet(tx *sqlx.Tx, key, value string) {
-  tx.MustExec("INSERT INTO kv(k, v) VALUES($1, $2) ON CONFLICT(k) DO UPDATE SET v=$2 WHERE kv.k=$1", key, value)
-}
+  db.LogMode(true)
 
-func kvGetInt(tx *sqlx.Tx, key string, defaultValue int) int {
-  var value string
-  err := tx.Get(&value, "SELECT v FROM kv WHERE k=$1", key)
 
-  if err == sql.ErrNoRows {
-    return defaultValue
+  options := &gormigrate.Options{
+    TableName:      "migrations",
+    IDColumnName:   "id",
+    IDColumnSize:   255,
+    UseTransaction: true,
   }
 
-  checkError(err)
 
-  i, err := strconv.Atoi(value)
-  checkError(err)
-  return i
+  m := gormigrate.New(db, options, []*gormigrate.Migration{
+    {
+      ID: "1",
+      Migrate: func(tx *gorm.DB) error {
+        type Restaurant struct {
+          ID uint
+
+          Slug string
+          Name string
+
+          Address1 string
+          Address2 string
+          Town string
+          Phone string
+
+          MapLocation string
+          MapZoom string
+
+          About string
+
+          CreatedAt time.Time
+          UpdatedAt time.Time
+        }
+        return tx.AutoMigrate(&Restaurant{}).Error
+      },
+    },
+    {
+      ID: "2",
+      Migrate: func(tx *gorm.DB) error {
+        type Menu struct {
+          ID uint
+          RestaurantID uint
+          Restaurant Restaurant
+          Items MenuItems `gorm:"type:text"`
+
+          CreatedAt time.Time
+          UpdatedAt time.Time
+        }
+        return tx.AutoMigrate(&Menu{}).Error
+      },
+    },
+    {
+      ID: "3",
+      Migrate: func(tx *gorm.DB) error {
+        return tx.Model(&Menu{}).AddForeignKey("restaurant_id", "restaurants(id)", "RESTRICT", "RESTRICT").Error
+      },
+    },
+    {
+      ID: "4",
+      Migrate: func(tx *gorm.DB) error {
+        type Order struct {
+          RestaurantID uint `gorm:"primary_key"`
+          Number uint `gorm:"primary_key"`
+
+          Name string
+          Telephone string
+          MenuID uint
+          Menu Menu `gorm:"association_autoupdate:false;association_autocreate:false"`
+          Items OrderItems `gorm:"type:text"`
+          GST Money
+          Total Money
+        }
+
+        err := tx.AutoMigrate(&Order{}).Error
+        if err != nil { return err }
+
+        err = tx.Model(&Order{}).AddForeignKey("restaurant_id", "restaurants(id)", "RESTRICT", "RESTRICT").Error
+        if err != nil { return err }
+
+        err = tx.Model(&Order{}).AddForeignKey("menu_id", "menus(id)", "RESTRICT", "RESTRICT").Error
+        if err != nil { return err }
+
+        type Restaurant struct {
+          LastOrderNumber uint `gorm:"default:0"`
+        }
+
+        return tx.AutoMigrate(&Restaurant{}).Error
+      },
+    },
+  })
+
+  checkError(m.Migrate())
 }
 
-func kvSetInt(tx *sqlx.Tx, key string, value int) {
-  kvSet(tx, key, strconv.Itoa(value))
-}
-
-func dbFetch(table, keyCol string, key interface{}, cols []string, dest interface{}) error {
-  q := "SELECT " + strings.Join(cols, ", ") + " FROM " + table + " WHERE " + keyCol + " = $1"
-  return db.Get(dest, q, key)
-}
-
-func dbFetchAll(table, keyCol string, key interface{}, dest interface{}) error {
-  q := "SELECT * FROM " + table + " WHERE " + keyCol + " = $1"
-  return db.Get(dest, q, key)
-}
-
-func dbInsert(table string, cols []string, src interface{}) error {
-  const query = "INSERT INTO %s(%s) VALUES(%s)"
-
-  var binds []string
-  var args []interface{}
-
-  for _, col := range cols {
-    field := reflect.Indirect(reflect.ValueOf(src)).FieldByName(col)
-
-    if !field.IsValid() {
-      log.Panicf("dbInsert: src missing field '%s'", col)
-    }
-
-    binds = append(binds, "?")
-    args = append(args, field.Interface())
-  }
-
-  colsStr := strings.Join(cols, ",")
-  bindsStr := strings.Join(binds, ",")
-
-  q := db.Rebind(fmt.Sprintf(query, table, colsStr, bindsStr))
-  //log.Println(q)
-  //log.Printf("%#v", args)
-
-  _, err := db.Exec(q, args...)
-  return err
-}
-
-func dbUpdate(table string, id int, cols []string, src interface{}) error {
-  const query = "UPDATE %s SET %s WHERE id=?"
-
-  var binds []string
-  var args []interface{}
-
-  for _, col := range cols {
-    field := reflect.Indirect(reflect.ValueOf(src)).FieldByName(col)
-
-    if !field.IsValid() {
-      log.Panicf("dbUpdate: src missing field '%s'", col)
-    }
-
-    binds = append(binds, col+"=?")
-    args = append(args, field.Interface())
-  }
-
-  bindsStr := strings.Join(binds, ",")
-  args = append(args, id)
-
-  q := db.Rebind(fmt.Sprintf(query, table, bindsStr))
-  //log.Println(q)
-  //log.Printf("%#v", args)
-
-  _, err := db.Exec(q, args...)
-  return err
-}
-
-func dbUpsert(table string, id int, cols []string, src interface{}) error {
-  if id == 0 {
-    return dbInsert(table, cols, src)
-  } else {
-    return dbUpdate(table, id, cols, src)
-  }
-}
-
-func dbRealUpsert(table, keyCol string, key interface{}, cols []string, src interface{}) error {
-  var insertArgs, updateArgs, args []interface{}
-  var insertBinds, updateBinds []string
-
-  // loops through cols to build ararys of binds and args
-  for _, col := range cols {
-    field := reflect.Indirect(reflect.ValueOf(src)).FieldByName(col)
-
-    if !field.IsValid() {
-      log.Panicf("dbUpsert: src missing field '%s'", col)
-    }
-
-    insertBinds = append(insertBinds, "?")
-    updateBinds = append(updateBinds, col+"=?")
-
-    arg := field.Interface()
-    insertArgs = append(insertArgs, arg)
-    updateArgs = append(updateArgs, arg)
-  }
-
-  // add primary key to insert
-  insertBinds = append(insertBinds, "?")
-  insertArgs = append(insertArgs, key)
-
-  // join binds with ,
-  colsStr := strings.Join(cols, ",") + ",id"
-  insertBindsStr := strings.Join(insertBinds, ",")
-  updateBindsStr := strings.Join(updateBinds, ",")
-
-  // join args together
-  args = append(args, insertArgs...)
-  args = append(args, updateArgs...)
-  args = append(args, key)
-
-  const query = "INSERT INTO %s(%s) VALUES(%s) ON CONFLICT DO UPDATE %s SET %s WHERE id=?"
-  q := fmt.Sprintf(query, table, colsStr, insertBindsStr, table, updateBindsStr)
-  q = db.Rebind(q)
-  log.Println(q)
-  log.Printf("%#v", args)
-
-  _, err := db.Exec(q, args...)
-  return err
-}
