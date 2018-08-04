@@ -35,18 +35,18 @@ type MenuItem struct {
 }
 
 
-func fetchMenuForRestaurantID(ID uint) *Menu {
-  return fetchMenuWhere("restaurant_id = ?", ID)
+func fetchMenuForRestaurantID(tx *gorm.DB, ID uint) *Menu {
+  return fetchMenuWhere(tx, "restaurant_id = ?", ID)
 }
 
-func fetchMenuForRestaurantSlug(slug string) *Menu {
-  return fetchMenuWhere("restaurants.slug = ?", slug)
+func fetchMenuForRestaurantSlug(tx *gorm.DB, slug string) *Menu {
+  return fetchMenuWhere(tx, "restaurants.slug = ?", slug)
 }
 
-func fetchMenuWhere(where interface{}, args ...interface{}) *Menu {
+func fetchMenuWhere(tx *gorm.DB, where interface{}, args ...interface{}) *Menu {
   var menu Menu
 
-  err := (db.Order("ID desc").Where(where, args...).
+  err := (tx.Order("ID desc").Where(where, args...).
           Joins("LEFT JOIN restaurants ON restaurants.id = menus.restaurant_id").
           First(&menu).Error)
 
@@ -75,9 +75,9 @@ func (m MenuItems) Value() (driver.Value, error) {
 }
 
 
-func fetchMenu(id uint) *Menu {
+func fetchMenu(tx *gorm.DB, id uint) *Menu {
   var menu Menu
-  checkError(db.First(&menu, id).Error)
+  checkError(tx.First(&menu, id).Error)
   return &menu
 }
 
@@ -92,13 +92,13 @@ func (m *MenuItems)itemById(id int) *MenuItem {
 
 
 
-func editMenu(w http.ResponseWriter, req *http.Request) {
+func editMenu(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
   restaurantID := ef.GetId(req)
 
   switch req.Method {
   case "GET":
     var items MenuItems
-    menu := fetchMenuForRestaurantID(restaurantID)
+    menu := fetchMenuForRestaurantID(tx, restaurantID)
 
     if menu == nil {
       items = MenuItems{
@@ -138,7 +138,7 @@ func editMenu(w http.ResponseWriter, req *http.Request) {
 
     checkError(json.Unmarshal(body, &menu.Items))
 
-    checkError(db.Create(&menu).Error)
+    checkError(tx.Create(&menu).Error)
 
     fmt.Fprint(w, "\"OK\"")
   }

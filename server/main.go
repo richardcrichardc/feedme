@@ -8,26 +8,29 @@ import (
   "os"
   "feedme/server/templates"
   "feedme/server/editform"
+  mw "feedme/server/middleware"
 )
+
+
 
 func main() {
   loadConfig()
   templates.Init()
-  initDB()
+  db := initDB()
 
   router := mux.NewRouter()
 
-  router.HandleFunc("/{slug}", getFrontEnd).Methods("GET")
-  router.HandleFunc("/placeOrder", postPlaceOrder).Methods("POST")
+  router.HandleFunc("/{slug}", mw.GormTxHandler(db, getFrontEnd)).Methods("GET")
+  router.HandleFunc("/placeOrder", mw.GormTxHandler(db, postPlaceOrder)).Methods("POST")
 
-  router.HandleFunc("/admin/restaurants", getRestaurants).Methods("GET")
-  router.Handle("/admin/restaurants/{id}", editform.Handler(db, NewEditRestaurantForm))
-  router.HandleFunc("/admin/restaurants/{id}/menu", editMenu).Methods("GET", "POST")
+  router.HandleFunc("/admin/restaurants", mw.GormTxHandler(db, getRestaurants)).Methods("GET")
+  router.Handle("/admin/restaurants/{id}", mw.GormTxHandler(db, editform.Handler(NewEditRestaurantForm)))
+  router.HandleFunc("/admin/restaurants/{id}/menu", mw.GormTxHandler(db, editMenu)).Methods("GET", "POST")
 
 
   router.PathPrefix("/assets/").Handler(templates.AssetsHandler())
 
-  server := recoverMiddleware(router)
+  server := mw.Recover(router, Config.Debug)
   server = logger.DefaultHandler(server)
 
   log.Fatal(http.ListenAndServe(":" + listenPort(), server))

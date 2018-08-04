@@ -6,6 +6,7 @@ import (
   "encoding/json"
   "database/sql/driver"
   "errors"
+  "time"
 )
 
 
@@ -20,6 +21,9 @@ type Order struct {
   Items OrderItems `gorm:"type:text"`
   GST Money
   Total Money
+
+  SessionID string `gorm:"not null"`
+  CreatedAt time.Time `gorm:"not null"`
 }
 
 

@@ -12,6 +12,7 @@ import (
   "log"
   "strings"
   "time"
+  mw "feedme/server/middleware"
  )
 
 type Form interface {
@@ -31,8 +32,8 @@ type Instance struct {
 
 type FormFactory func() Form
 
-func Handler(db *gorm.DB, factory FormFactory) http.Handler {
-  return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+func Handler(factory FormFactory) mw.GormTxHandlerFunc {
+  return func(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
     f := factory()
     fi := new(Instance)
     fi.Form = f
@@ -44,7 +45,7 @@ func Handler(db *gorm.DB, factory FormFactory) http.Handler {
       fi.Data = f.New()
 
       if fi.Id != 0 {
-        checkError(db.First(fi.Data, fi.Id).Error)
+        checkError(tx.First(fi.Data, fi.Id).Error)
       }
 
       layout := f.Layout(fi)
@@ -86,7 +87,7 @@ func Handler(db *gorm.DB, factory FormFactory) http.Handler {
         time.Sleep(1*time.Second) // TODO remove me
 
         SetID(fi.Data, fi.Id)
-        checkError(db.Save(fi.Data).Error)
+        checkError(tx.Save(fi.Data).Error)
 
         json.NewEncoder(w).Encode(SubmissionResult{"SAVED", nil})
       default:
@@ -96,7 +97,7 @@ func Handler(db *gorm.DB, factory FormFactory) http.Handler {
     default:
       panic(templates.BadRequest("Unexected http method: " + req.Method))
     }
-  })
+  }
 }
 
 func GetId(req *http.Request) uint {

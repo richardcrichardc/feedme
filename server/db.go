@@ -9,12 +9,10 @@ import (
   "time"
 )
 
-var db *gorm.DB
-
-func initDB() {
+func initDB() *gorm.DB {
   var err error
 
-  db, err = gorm.Open("postgres", "dbname=feedme sslmode=disable")
+  db, err := gorm.Open("postgres", "dbname=feedme sslmode=disable")
   checkError(err)
   log.Printf("DB: %v", db)
 
@@ -90,6 +88,9 @@ func initDB() {
           Items OrderItems `gorm:"type:text"`
           GST Money
           Total Money
+
+          SessionID string `gorm:"not null"`
+          CreatedAt time.Time `gorm:"not null"`
         }
 
         err := tx.AutoMigrate(&Order{}).Error
@@ -101,6 +102,10 @@ func initDB() {
         err = tx.Model(&Order{}).AddForeignKey("menu_id", "menus(id)", "RESTRICT", "RESTRICT").Error
         if err != nil { return err }
 
+        err = tx.Model(&Order{}).AddIndex("orders_session_id_create_at_index", "session_id", "created_at").Error
+        if err != nil { return err }
+
+
         type Restaurant struct {
           LastOrderNumber uint `gorm:"default:0"`
         }
@@ -111,5 +116,7 @@ func initDB() {
   })
 
   checkError(m.Migrate())
+
+  return db
 }
 

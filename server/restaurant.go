@@ -5,6 +5,7 @@ import (
   "feedme/server/templates"
   ef "feedme/server/editform"
   "time"
+  "github.com/jinzhu/gorm"
 )
 
 
@@ -38,9 +39,9 @@ type RestaurantSummary struct {
   Name string
 }
 
-func getRestaurants(w http.ResponseWriter, req *http.Request) {
+func getRestaurants(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
   restaurants := make([]RestaurantSummary, 0)
-  checkError(db.Table("restaurants").Find(&restaurants).Error)
+  checkError(tx.Table("restaurants").Find(&restaurants).Error)
   templates.ElmApp(w, req, "Restaurants", restaurants)
 }
 
