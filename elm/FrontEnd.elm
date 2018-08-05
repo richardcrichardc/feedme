@@ -24,6 +24,7 @@ import Bootstrap.Button as Button
 import Bootstrap.Form as Form
 import Bootstrap.Form.Input as Input
 import Bootstrap.Grid.Col as Col
+import Bootstrap.Alert as Alert
 
 main =
   Loader.programWithFlags2
@@ -53,7 +54,8 @@ init value location =
 -- MODEL
 
 type alias Model =
-  { name : String
+  { slug : String
+  , name : String
   , address1 : String
   , address2 : String
   , town : String
@@ -79,11 +81,12 @@ type alias Model =
   }
 
 type Page = PageOne | PageTwo | PageThree
-type OrderStatus = Deciding | Ordering | Ordered
+type OrderStatus = Deciding (Maybe String) | Ordering
 
 decodeModel : Decoder Model
 decodeModel =
     decode Model
+      |> required "Slug" string
       |> required "Name" string
       |> required "Address1" string
       |> required "Address2" string
@@ -103,7 +106,7 @@ decodeModel =
       |> hardcoded 0.0
       |> hardcoded 0.0
       |> hardcoded PageOne
-      |> hardcoded Deciding
+      |> hardcoded (Deciding Nothing)
       |> hardcoded Nothing
 
 subscriptions : Model -> Sub Msg
@@ -122,7 +125,7 @@ type Msg
   | ScrollMenu
   | WindowSize Window.Size
   | PlaceOrder
-  | PlaceOrderResponse (Result Http.Error String)
+  | PlaceOrderResponse (Result Http.Error PostResponse)
   | ToggleErrorDetails
   | UpdateConfirmName String
   | UpdateConfirmPhone String
@@ -164,13 +167,19 @@ update msg model =
           }
         , Http.send PlaceOrderResponse request)
 
-    PlaceOrderResponse (Ok _) ->
-        ({ model | orderStatus = Ordered}, Cmd.none)
+    PlaceOrderResponse response ->
+      case response of
+        (Ok Okay) ->
+          (model, Navigation.load ("/" ++ model.slug ++ "/status"))
 
-    PlaceOrderResponse (Err err) ->
-        ({ model |
-            errorDialog = ErrorDialog.dialog "Error" (Just ("Retry", PlaceOrder)) (Just (toString err, ToggleErrorDetails))}
-        , Cmd.none)
+        (Ok (Error msg)) ->
+          ({ model | orderStatus = Deciding (Just msg)}, Cmd.none)
+
+
+        (Err err) ->
+          ({ model |
+              errorDialog = ErrorDialog.dialog "Error" (Just ("Retry", PlaceOrder)) (Just (toString err, ToggleErrorDetails))}
+          , Cmd.none)
 
     ToggleErrorDetails ->
       ({ model | errorDialog = ErrorDialog.toggleDetails model.errorDialog }
@@ -207,7 +216,20 @@ encodeOrderItem item =
       , ("Qty", Encode.int item.qty)
       ]
 
-decodePostResponse = string
+type PostResponse = Okay
+                  | Error String
+
+
+decodePostResponse : Decoder PostResponse
+decodePostResponse =
+  (Decode.field "Status" string)
+    |> Decode.andThen (\str ->
+      case str of
+        "OK" -> Decode.succeed Okay
+        "ERR" -> Decode.map Error (Decode.field "Error" string)
+        _ -> Decode.fail ("Bad 'Status': " ++ str)
+    )
+
 
 -- VIEW
 
@@ -328,6 +350,11 @@ confirmView model =
       [ navbarView model
       , div [ class "container section confirm" ]
           [ h2 [] [ text "Confirm Order" ]
+          , case model.orderStatus of
+              Deciding (Just errorMsg) ->
+                Alert.simpleDanger [] [ text errorMsg ]
+              _ ->
+                text ""
           , p [] [ text "Your order contains "
                  , strong [] [ text totalItems ]
                  , text " items and has total of "

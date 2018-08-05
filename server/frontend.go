@@ -31,6 +31,25 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionI
   templates.ElmApp(w, req, "FrontEnd", flags)
 }
 
+
+func getFrontEndStatus(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
+
+  slug := mux.Vars(req)["slug"]
+  order := fetchLatestOrder(tx, slug, sessionID)
+
+  if order == nil {
+
+  }
+
+  templates.ElmApp(w, req, "FrontEndStatus", order)
+}
+
+
+type OrderResult struct {
+  Status string
+  Error string
+}
+
 func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
   var order Order
 
@@ -51,7 +70,8 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
 
   fmt.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
 
-  fmt.Fprintf(w, `"OK"`)
+
+  json.NewEncoder(w).Encode(OrderResult{Status: "OK"})
 }
 
 

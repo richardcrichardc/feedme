@@ -18,7 +18,7 @@ import (
 type Menu struct {
   ID uint
   RestaurantID uint
-  Restaurant Restaurant
+  Restaurant Restaurant `gorm:"preload:true;association_autoupdate:false;association_autocreate:false"`
   Items MenuItems `gorm:"type:text"`
 
   CreatedAt time.Time
@@ -46,7 +46,7 @@ func fetchMenuForRestaurantSlug(tx *gorm.DB, slug string) *Menu {
 func fetchMenuWhere(tx *gorm.DB, where interface{}, args ...interface{}) *Menu {
   var menu Menu
 
-  err := (tx.Order("ID desc").Where(where, args...).
+  err := (tx.Preload("Restaurant").Order("ID desc").Where(where, args...).
           Joins("LEFT JOIN restaurants ON restaurants.id = menus.restaurant_id").
           First(&menu).Error)
 

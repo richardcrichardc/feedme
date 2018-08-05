@@ -21,6 +21,7 @@ func main() {
   router := mux.NewRouter()
 
   router.HandleFunc("/{slug}", mw.GormTxHandler(db, getFrontEnd)).Methods("GET")
+  router.HandleFunc("/{slug}/status", mw.GormTxHandler(db, getFrontEndStatus)).Methods("GET")
   router.HandleFunc("/placeOrder", mw.GormTxHandler(db, postPlaceOrder)).Methods("POST")
 
   router.HandleFunc("/admin/restaurants", mw.GormTxHandler(db, getRestaurants)).Methods("GET")

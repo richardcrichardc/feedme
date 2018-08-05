@@ -7,6 +7,7 @@ import (
   "database/sql/driver"
   "errors"
   "time"
+  "github.com/jinzhu/gorm"
 )
 
 
@@ -32,6 +33,19 @@ type OrderItems []OrderItem
 type OrderItem struct {
   Id int
   Qty int
+}
+
+
+func fetchLatestOrder(tx *gorm.DB, restaurantSlug, sessionID string) *Order {
+  var order Order
+
+  err := (tx.Order("number desc").Where("restaurants.slug=? AND orders.session_id=?", restaurantSlug, sessionID).
+          Joins("LEFT JOIN restaurants ON restaurants.id = orders.restaurant_id").
+          First(&order).Error)
+
+  checkError(err)
+
+  return &order
 }
 
 

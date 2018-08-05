@@ -5,7 +5,6 @@ import (
   "log"
   "net/http"
   "runtime/debug"
-  "database/sql"
   "feedme/server/templates"
   "github.com/jinzhu/gorm"
   "crypto/rand"
@@ -26,7 +25,7 @@ func Recover(next http.Handler, debugFlag bool) http.Handler {
           msg = "Bad Request"
         default:
           switch err {
-          case sql.ErrNoRows:
+          case gorm.ErrRecordNotFound:
             code = 404
             msg = "Not Found"
           default:
