@@ -59,7 +59,7 @@ func initDB() *gorm.DB {
         type Menu struct {
           ID uint
           RestaurantID uint
-          Restaurant Restaurant
+          Restaurant *Restaurant `gorm:"association_autoupdate:false;association_autocreate:false"`
           Items MenuItems `gorm:"type:text"`
 
           CreatedAt time.Time
@@ -84,7 +84,7 @@ func initDB() *gorm.DB {
           Name string
           Telephone string
           MenuID uint
-          Menu Menu `gorm:"association_autoupdate:false;association_autocreate:false"`
+          Menu *Menu `gorm:"association_autoupdate:false;association_autocreate:false"`
           Items OrderItems `gorm:"type:text"`
           GST Money
           Total Money

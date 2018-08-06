@@ -1,9 +1,11 @@
-module FrontEnd exposing (..)
+module FrontEnd.Main exposing (..)
+
+import Models.Menu as Menu
+import Models.Restaurant as Restaurant
 
 import Util.Loader as Loader
 import Navigation
 import Char
-import Menu
 import Scroll
 import Window
 import Task
@@ -12,6 +14,7 @@ import Process
 import Http
 import Util.Form as Form
 import Util.ErrorDialog as ErrorDialog
+import Views.Layout as Layout
 
 import Json.Decode as Decode exposing (Decoder, Value, succeed, decodeValue, string, int)
 import Json.Decode.Pipeline exposing (decode, required, optional, hardcoded, resolve)
@@ -54,15 +57,7 @@ init value location =
 -- MODEL
 
 type alias Model =
-  { slug : String
-  , name : String
-  , address1 : String
-  , address2 : String
-  , town : String
-  , phone : String
-  , mapLocation : String
-  , mapZoom : String
-  , about : String
+  { restaurant : Restaurant.Restaurant
   , menuId : Int
   , menu : Menu.Menu
   , googleStaticMapsKey : String
@@ -86,15 +81,7 @@ type OrderStatus = Deciding (Maybe String) | Ordering
 decodeModel : Decoder Model
 decodeModel =
     decode Model
-      |> required "Slug" string
-      |> required "Name" string
-      |> required "Address1" string
-      |> required "Address2" string
-      |> required "Town" string
-      |> required "Phone" string
-      |> required "MapLocation" string
-      |> required "MapZoom" string
-      |> required "About" string
+      |> required "Restaurant" Restaurant.decode
       |> required "MenuID" int
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
@@ -170,7 +157,7 @@ update msg model =
     PlaceOrderResponse response ->
       case response of
         (Ok Okay) ->
-          (model, Navigation.load ("/" ++ model.slug ++ "/status"))
+          (model, Navigation.load ("/" ++ model.restaurant.slug ++ "/status"))
 
         (Ok (Error msg)) ->
           ({ model | orderStatus = Deciding (Just msg)}, Cmd.none)
@@ -238,10 +225,10 @@ view model =
   div []
     [ ErrorDialog.view model.errorDialog
     , navbarView model
-    , logoView model.name
+    , logoView model.restaurant.name
     , placeOrderView model
     , locationView model
-    , aboutView model.about
+    , aboutView model.restaurant.about
     , footer
     ]
 
@@ -251,21 +238,16 @@ navbarView model =
   let
     opacity = 1.0 --navbarOpacity model
   in
-    if opacity > 0.0 then
-      div [ class "bg-light fixed-top", style [("opacity", (toString opacity)) ] ]
-        [ div [ class "container px-3 py-2 text-right" ]
-            <| case model.page of
-                PageOne ->
-                  [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "Review Order »" ] ]
-                PageTwo ->
-                  [ Button.linkButton [ Button.primary, Button.attrs [ href "#menu", class "mr-2"] ] [ text "« Menu" ]
-                  , Button.linkButton [ Button.primary, Button.attrs [ href "#confirm" ] ] [ text "Confirm »" ]
-                  ]
-                PageThree ->
-                  [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "« Review Order" ] ]
-          ]
-        else
-          text ""
+    Layout.navbarView model.restaurant.name opacity
+      <| case model.page of
+          PageOne ->
+            [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "Review Order »" ] ]
+          PageTwo ->
+            [ Button.linkButton [ Button.primary, Button.attrs [ href "#menu", class "mr-2"] ] [ text "« Menu" ]
+            , Button.linkButton [ Button.primary, Button.attrs [ href "#confirm" ] ] [ text "Confirm »" ]
+            ]
+          PageThree ->
+            [ Button.linkButton [ Button.primary, Button.attrs [ href "#order" ] ] [ text "« Review Order" ] ]
 
 
 navbarOpacity : Model -> Float
@@ -380,9 +362,10 @@ confirmView model =
 locationView : Model -> Html Msg
 locationView model =
   let
+    restaurant = model.restaurant
     mapUrl = "https://maps.googleapis.com/maps/api/staticmap"
-             ++ "?markers=" ++ (Http.encodeUri model.mapLocation)
-             ++ "&zoom=" ++ (Http.encodeUri model.mapZoom)
+             ++ "?markers=" ++ (Http.encodeUri restaurant.mapLocation)
+             ++ "&zoom=" ++ (Http.encodeUri restaurant.mapZoom)
              ++ "&size=300x300&style=feature:poi.business|visibility:off&"
              ++ "key=" ++ (Http.encodeUri model.googleStaticMapsKey)
   in
@@ -392,9 +375,9 @@ locationView model =
     , div [ class "d-flex justify-content-center"]
         [ dl []
             [ dt [] [ text "Phone" ]
-            , dd [] [ text model.phone ]
+            , dd [] [ text restaurant.phone ]
             , dt [] [ text "Address" ]
-            , dd [] ((strBr model.address1) ++ (strBr model.address2) ++ (strBr model.town))
+            , dd [] ((strBr restaurant.address1) ++ (strBr restaurant.address2) ++ (strBr restaurant.town))
             ]
         ]
     ]

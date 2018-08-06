@@ -1,4 +1,4 @@
-module Menu exposing (..)
+module Models.Menu exposing (..)
 
 import Json.Decode as Decode
 import Html exposing (..)
@@ -53,9 +53,11 @@ orderAdd item order =
       else
         x :: (orderAdd item xs)
 
+
 decode: String -> Result String Menu
 decode str =
   Decode.decodeString menuDecoder str
+
 
 menuDecoder: Decode.Decoder Menu
 menuDecoder = Decode.list itemDecoder
@@ -67,6 +69,17 @@ itemDecoder = Decode.map4 MenuItem
                 (Decode.field "Name" Decode.string)
                 (Decode.field "Desc" Decode.string)
                 (Decode.field "Price" Decode.int)
+
+
+orderDecoder: Decode.Decoder Order
+orderDecoder = Decode.list orderItemDecoder
+
+
+orderItemDecoder: Decode.Decoder OrderItem
+orderItemDecoder = Decode.map2 OrderItem
+                (Decode.field "Id" Decode.int)
+                (Decode.field "Qty" Decode.int)
+
 
 -- views
 
@@ -145,7 +158,7 @@ orderTotals menu order =
     (toString totalItems, priceString totalPrice)
 
 
-invoiceView : Menu -> Order -> Html Msg
+invoiceView : Menu -> Order -> Html msg
 invoiceView menu order =
   let
     invoice = orderInvoice menu order
@@ -161,7 +174,7 @@ invoiceView menu order =
     , Table.tbody [] lines
     )
 
-invoiceLineView : InvoiceLine -> Table.Row Msg
+invoiceLineView : InvoiceLine -> Table.Row msg
 invoiceLineView line =
   Table.tr []
     [ Table.td [] [ text (toString line.qty) ]
@@ -169,7 +182,7 @@ invoiceLineView line =
     , Table.td [ tdAlignRight ] [ text (priceString line.total) ]
     ]
 
-invoiceTotalLine : Money -> Table.Row Msg
+invoiceTotalLine : Money -> Table.Row msg
 invoiceTotalLine total =
   Table.tr []
     [ Table.td [] []

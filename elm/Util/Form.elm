@@ -5,6 +5,9 @@ import Html.Attributes
 import Bootstrap.Button as Button
 import Bootstrap.Utilities.Spacing as Spacing
 
+spinner =
+  img [ Html.Attributes.class "spinner", Html.Attributes.src "/assets/save-spinner-ba4f7d.gif" ] []
+
 cancelSaveButtonView : Bool -> Bool -> msg -> msg -> Html msg
 cancelSaveButtonView saveDisabled saving cancelCmd saveCmd =
   div
@@ -24,7 +27,7 @@ spinnerButton title disabled spinning onClickCmd =
   let
     innerHtml = if spinning then
                 [ text (title ++ " ")
-                , img [ Html.Attributes.class "spinner", Html.Attributes.src "/assets/save-spinner-ba4f7d.gif" ] []
+                , spinner
                 ]
               else
                 [ text title ]

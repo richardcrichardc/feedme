@@ -18,7 +18,7 @@ import (
 type Menu struct {
   ID uint
   RestaurantID uint
-  Restaurant Restaurant `gorm:"preload:true;association_autoupdate:false;association_autocreate:false"`
+  Restaurant *Restaurant `gorm:"preload:true;association_autoupdate:false;association_autocreate:false"`
   Items MenuItems `gorm:"type:text"`
 
   CreatedAt time.Time

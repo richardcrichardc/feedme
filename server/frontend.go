@@ -10,25 +10,23 @@ import (
   "github.com/jinzhu/gorm"
 )
 
-type FrontEndFlags struct {
-  Restaurant
-  MenuID uint
-  Menu MenuItems
-  GoogleStaticMapsKey string
-}
-
 func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-  var flags FrontEndFlags
-
   slug := mux.Vars(req)["slug"]
   menu := fetchMenuForRestaurantSlug(tx, slug)
 
-  flags.Restaurant = menu.Restaurant
-  flags.MenuID = menu.ID
-  flags.Menu = menu.Items
-  flags.GoogleStaticMapsKey = Config.GoogleStaticMapsKey
+  flags := struct {
+    Restaurant *Restaurant
+    MenuID uint
+    Menu MenuItems
+    GoogleStaticMapsKey string
+  }{
+    menu.Restaurant,
+    menu.ID,
+    menu.Items,
+    Config.GoogleStaticMapsKey,
+  }
 
-  templates.ElmApp(w, req, "FrontEnd", flags)
+  templates.ElmApp(w, req, "FrontEnd.Main", flags)
 }
 
 
@@ -41,7 +39,17 @@ func getFrontEndStatus(w http.ResponseWriter, req *http.Request, tx *gorm.DB, se
 
   }
 
-  templates.ElmApp(w, req, "FrontEndStatus", order)
+  flags := struct {
+    Restaurant *Restaurant
+    Menu MenuItems
+    Order OrderItems
+  }{
+    order.Menu.Restaurant,
+    order.Menu.Items,
+    order.Items,
+  }
+
+  templates.ElmApp(w, req, "FrontEnd.Status", flags)
 }
 
 

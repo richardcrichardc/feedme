@@ -39,9 +39,12 @@ type OrderItem struct {
 func fetchLatestOrder(tx *gorm.DB, restaurantSlug, sessionID string) *Order {
   var order Order
 
-  err := (tx.Order("number desc").Where("restaurants.slug=? AND orders.session_id=?", restaurantSlug, sessionID).
+  err := tx.
+          Preload("Menu.Restaurant").
+          Order("number desc").
+          Where("restaurants.slug=? AND orders.session_id=?", restaurantSlug, sessionID).
           Joins("LEFT JOIN restaurants ON restaurants.id = orders.restaurant_id").
-          First(&order).Error)
+          First(&order).Error
 
   checkError(err)
 

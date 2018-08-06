@@ -22,7 +22,7 @@ import Bootstrap.Button as Button
 
 import Util.Form
 import Util.ErrorDialog as ErrorDialog
-import Menu
+import Models.Menu as Menu
 
 main =
   Loader.programWithFlags
