@@ -59,12 +59,12 @@ type OrderResult struct {
 }
 
 func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-  var order Order
+  var order OrderWithSessionID
 
   body, _ := ioutil.ReadAll(req.Body)
   checkError(json.Unmarshal(body, &order))
   fmt.Printf("Order: %#v", order)
-  order.Menu = *fetchMenu(tx, order.MenuID)
+  order.Menu = fetchMenu(tx, order.MenuID)
   order.RestaurantID = order.Menu.RestaurantID
   order.SessionID = sessionID
 
@@ -73,7 +73,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
   query := "UPDATE restaurants SET last_order_number=last_order_number+1 WHERE id=$1 RETURNING last_order_number"
   checkError(tx.CommonDB().QueryRow(query, order.RestaurantID).Scan(&order.Number))
 
-  checkError(tx.Create(&order).Error)
+  checkError(tx.Table("orders").Create(&order).Error)
 
 
   fmt.Printf("PlaceOrder:\n%s\n%#v\n", body, order)

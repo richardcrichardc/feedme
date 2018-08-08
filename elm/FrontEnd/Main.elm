@@ -85,7 +85,7 @@ decodeModel =
       |> required "MenuID" int
       |> required "Menu" Menu.menuDecoder
       |> required "GoogleStaticMapsKey" string
-      |> hardcoded [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
+      |> hardcoded [] -- [ {id=1, qty=1}, {id=2, qty=2}, {id=3, qty=3}]
       |> hardcoded ""
       |> hardcoded ""
       |> hardcoded 0.0

@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 cd elm
-chronic elm-make *.elm Frontend/*.elm --output ../assets/elm.js --yes
+chronic elm-make *.elm FrontEnd/*.elm BackEnd/*.elm --output ../assets/elm.js --yes
 cd ..
 
 chronic npm run sass

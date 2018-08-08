@@ -18,13 +18,26 @@ type Order struct {
   Name string
   Telephone string
   MenuID uint
-  Menu Menu `gorm:"association_autoupdate:false;association_autocreate:false"`
+  Menu *Menu `gorm:"association_autoupdate:false;association_autocreate:false"`
   Items OrderItems `gorm:"type:text"`
   GST Money
   Total Money
 
-  SessionID string `gorm:"not null"`
   CreatedAt time.Time `gorm:"not null"`
+}
+
+type OrderWithSessionID struct {
+  Order
+  SessionID string `gorm:"not null"`
+}
+
+type TillOrder struct {
+  Number uint
+  Name string
+  Telephone string
+  MenuID uint
+  Items OrderItems
+  CreatedAt time.Time
 }
 
 
@@ -50,6 +63,15 @@ func fetchLatestOrder(tx *gorm.DB, restaurantSlug, sessionID string) *Order {
 
   return &order
 }
+
+func fetchTillOrders(tx *gorm.DB, restaurantID uint) []TillOrder {
+  var orders []TillOrder
+
+  checkError(tx.Table("orders").Order("number desc").Where("restaurant_id=?", restaurantID).Find(&orders).Error)
+
+  return orders
+}
+
 
 
 func (o *OrderItems) Scan(src interface{}) error {

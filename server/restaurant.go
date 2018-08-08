@@ -31,6 +31,14 @@ type Restaurant struct {
   UpdatedAt time.Time
 }
 
+func fetchRestaurantBySlug(tx *gorm.DB, slug string) *Restaurant {
+  var restaurant Restaurant
+  checkError(tx.Where("slug=?", slug).Find(&restaurant).Error)
+  return &restaurant
+}
+
+
+
 // List Restaurants
 
 type RestaurantSummary struct {
