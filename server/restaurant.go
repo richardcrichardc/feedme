@@ -25,10 +25,17 @@ type Restaurant struct {
 
   About string
 
-  LastOrderNumber uint `gorm:"default:0"`
-
   CreatedAt time.Time
   UpdatedAt time.Time
+}
+
+func (r *Restaurant) AfterCreate(tx *gorm.DB) (err error) {
+  return tx.Create(&RestaurantOrderNumber{r.ID, 0}).Error
+}
+
+type RestaurantOrderNumber struct {
+  RestaurantID uint `gorm:"primary_key"`
+  LastOrderNumber uint
 }
 
 func fetchRestaurantBySlug(tx *gorm.DB, slug string) *Restaurant {

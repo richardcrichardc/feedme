@@ -70,7 +70,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
 
   order.Recalc()
 
-  query := "UPDATE restaurants SET last_order_number=last_order_number+1 WHERE id=$1 RETURNING last_order_number"
+  query := "UPDATE restaurant_order_numbers SET last_order_number=last_order_number+1 WHERE restaurant_id=$1 RETURNING last_order_number"
   checkError(tx.CommonDB().QueryRow(query, order.RestaurantID).Scan(&order.Number))
 
   checkError(tx.Table("orders").Create(&order).Error)

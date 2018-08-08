@@ -50,12 +50,12 @@ func initDB() *gorm.DB {
           CreatedAt time.Time
           UpdatedAt time.Time
         }
-        return tx.AutoMigrate(&Restaurant{}).Error
-      },
-    },
-    {
-      ID: "2",
-      Migrate: func(tx *gorm.DB) error {
+
+        type RestaurantOrderNumber struct {
+          RestaurantID uint `gorm:"primary_key"`
+          LastOrderNumber uint
+        }
+
         type Menu struct {
           ID uint
           RestaurantID uint
@@ -65,19 +65,8 @@ func initDB() *gorm.DB {
           CreatedAt time.Time
           UpdatedAt time.Time
         }
-        return tx.AutoMigrate(&Menu{}).Error
-      },
-    },
-    {
-      ID: "3",
-      Migrate: func(tx *gorm.DB) error {
-        return tx.Model(&Menu{}).AddForeignKey("restaurant_id", "restaurants(id)", "RESTRICT", "RESTRICT").Error
-      },
-    },
-    {
-      ID: "4",
-      Migrate: func(tx *gorm.DB) error {
-        type Order struct {
+
+      type Order struct {
           RestaurantID uint `gorm:"primary_key"`
           Number uint `gorm:"primary_key"`
 
@@ -93,7 +82,19 @@ func initDB() *gorm.DB {
           CreatedAt time.Time `gorm:"not null"`
         }
 
-        err := tx.AutoMigrate(&Order{}).Error
+        err :=  tx.AutoMigrate(&Restaurant{}).Error
+        if err != nil { return err }
+
+        err = tx.AutoMigrate(&RestaurantOrderNumber{}).Error
+        if err != nil { return err }
+
+        err = tx.AutoMigrate(&Menu{}).Error
+        if err != nil { return err }
+
+        err = tx.Model(&Menu{}).AddForeignKey("restaurant_id", "restaurants(id)", "RESTRICT", "RESTRICT").Error
+        if err != nil { return err }
+
+        err = tx.AutoMigrate(&Order{}).Error
         if err != nil { return err }
 
         err = tx.Model(&Order{}).AddForeignKey("restaurant_id", "restaurants(id)", "RESTRICT", "RESTRICT").Error
@@ -103,14 +104,7 @@ func initDB() *gorm.DB {
         if err != nil { return err }
 
         err = tx.Model(&Order{}).AddIndex("orders_session_id_create_at_index", "session_id", "created_at").Error
-        if err != nil { return err }
-
-
-        type Restaurant struct {
-          LastOrderNumber uint `gorm:"default:0"`
-        }
-
-        return tx.AutoMigrate(&Restaurant{}).Error
+        return err
       },
     },
   })
