@@ -117,31 +117,6 @@ subscriptions model =
   ]
 
 
-
-{-}
-sseEventDecoder : SSE.SsEvent -> Msg
-sseEventDecoder event =
-  let
-    msg =
-      case event.eventType of
-        "reset" ->
-          Ok Reset
-        "order" ->
-          case decodeString orderDecoder event.data of
-            Ok order ->
-              Ok (NewOrder order)
-            Err error ->
-              Err error
-        _ ->
-          Err ("Unsupported event type: " ++ event.eventType)
-
-  in
-    case msg of
-      Ok msg -> msg
-      Err err -> Noop
--}
-
-
 -- UPDATE
 
 type Msg
@@ -172,40 +147,6 @@ update msg model =
             _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString value))
           in
             (model, Cmd.none)
-
-{-
-      let
-        result = SSE.decodeEvent event
-                  |> Result.andThen
-      in
-        case result of
-          Just result ->
-            result
-          Err err ->
-            let
-              _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString event))
-            in
-              (model, Cmd.none)
-
-      case SSE.decodeEvent event of
-        Ok event ->
-          case event.event of
-            "Reset" ->
-              ({ model | orders = [] }, Cmd.none)
-            "Order" ->
-              let
-                order = decodeValue orderDecoder event.data
-              in
-                case order of
-                  Ok order ->
-                    ({ model | orders = order :: model.orders }, Cmd.none)
-                  Err error ->
-                    let
-                      _ = Debug.log "Bad Order: " (error ++ " Data: " ++ (toString event.data))
-                    in
-                       (model, Cmd.none)
-            _ ->
--}
 
 
 -- VIEW

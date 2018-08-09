@@ -6,7 +6,6 @@ import (
   "feedme/server/templates"
   "feedme/server/sse"
   "github.com/jinzhu/gorm"
-  "log"
   "sync"
 )
 
@@ -56,11 +55,8 @@ func writeTillStreams(restaurantID uint, event sse.Event) {
   streams := tillStreams[restaurantID]
   tillStreamsLock.RUnlock()
 
-  log.Printf("writeTillStreams: %d %#v", restaurantID, event)
-
   if streams != nil {
     for _, stream := range streams {
-      log.Printf("writeTillStreams: %#v", stream)
       stream <- event
     }
   }
@@ -95,7 +91,6 @@ func getTillStream(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessio
 
   go func() {
     for _, order := range fetchTillOrders(tx, restaurant.ID) {
-      log.Printf("Order: %#v", order)
       events <- sse.Event{"order", order}
     }
   }()

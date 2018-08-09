@@ -52,16 +52,12 @@ func Stream(w http.ResponseWriter, events chan Event) {
       _, err = w.Write([]byte(": keep-alive\n\n"))
 
     case event := <-events:
-      log.Printf("SSE EVENT")
 
       eventData, err := json.Marshal(event)
       if (err != nil) {
         panic(err)
       }
 
-      //_, err = w.Write([]byte("event: "))
-     // _, err = w.Write([]byte(event.Event))
-      //_, err = w.Write([]byte("\n"))
       _, err = w.Write([]byte("data: "))
       _, err = w.Write(eventData)
       _, err = w.Write([]byte("\n\n"))
