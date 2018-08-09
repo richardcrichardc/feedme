@@ -8,6 +8,8 @@ import (
   "io/ioutil"
   "encoding/json"
   "github.com/jinzhu/gorm"
+  "log"
+  "feedme/server/sse"
 )
 
 func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
@@ -76,8 +78,9 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
   checkError(tx.Table("orders").Create(&order).Error)
 
 
-  fmt.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
+  log.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
 
+  writeTillStreams(order.RestaurantID, sse.Event{"order", order})
 
   json.NewEncoder(w).Encode(OrderResult{Status: "OK"})
 }

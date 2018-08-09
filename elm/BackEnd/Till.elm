@@ -4,7 +4,10 @@ import Util.Loader as Loader
 import Html exposing (..)
 import Html.Attributes exposing(class)
 import Navigation
-import Json.Decode as Decode exposing (Value, Decoder, decodeValue, field, andThen, fail, succeed, list, int, string)
+import Json.Decode as Decode exposing (
+  Value, Decoder,
+  decodeValue, decodeString,
+  field, andThen, fail, succeed, list, int, string)
 import Views.Layout as Layout
 import Models.Restaurant as Restaurant
 import Models.Menu as Menu
@@ -14,6 +17,8 @@ import Date
 import Time exposing (every, second)
 import Task
 import Bootstrap.Table as Table
+
+import Util.SSE as SSE
 
 main =
   Loader.programWithFlags2
@@ -25,14 +30,20 @@ main =
     }
 
 init : Value -> Navigation.Location -> (Result String Model, Cmd Msg)
-init value location =
-    ( decodeValue decodeModel value
+init flags location =
+    ( decodeValue modelDecoder flags
     , Cmd.batch
         [ Task.perform Toc Date.now
+        , SSE.createEventSource "/das/till/events"
         ]
     )
 
 -- MODEL
+
+type alias Flags =
+  { restaurant : Restaurant.Restaurant
+  , orders : List Order
+  }
 
 type alias Model =
   { restaurant : Restaurant.Restaurant
@@ -50,36 +61,86 @@ type alias Order =
   }
 
 
-decodeModel : Decoder Model
-decodeModel =
+modelDecoder : Decoder Model
+modelDecoder =
     decode Model
       |> required "Restaurant" Restaurant.decode
-      |> required "Orders" (list decodeOrder)
+      |> hardcoded []
       |> hardcoded Nothing
 
-decodeOrder : Decoder Order
-decodeOrder =
+orderDecoder : Decoder Order
+orderDecoder =
     decode Order
       |> required "Number" int
       |> required "Name" string
       |> required "Telephone" string
       |> required "MenuID" int
       |> required "Items" Menu.orderDecoder
-      |> custom (field "CreatedAt" string |> andThen decodeDate)
+      |> custom (field "CreatedAt" string |> andThen dateDecoder)
 
 
-decodeDate : String -> Decoder Date.Date
-decodeDate dateString =
+dateDecoder : String -> Decoder Date.Date
+dateDecoder dateString =
   case Date.fromString dateString of
     Ok date -> succeed date
     Err err -> fail err
+
+
+type Event
+  = Reset
+  | NewOrder Order
+
+decodeEvent : String -> Result String Event
+decodeEvent eventStr =
+  case SSE.decodeEvent eventStr of
+    Ok event ->
+      case event.event of
+        "reset" ->
+          Ok Reset
+        "order" ->
+          case decodeValue orderDecoder event.data of
+            Ok order ->
+              Ok (NewOrder order)
+            Err err ->
+              Err err
+        _ ->
+          Err ("Unsupported event: " ++ event.event)
+    Err err ->
+      Err err
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.batch
   [ every second Tick
+  , SSE.ssEvents SSEvent
   ]
+
+
+
+{-}
+sseEventDecoder : SSE.SsEvent -> Msg
+sseEventDecoder event =
+  let
+    msg =
+      case event.eventType of
+        "reset" ->
+          Ok Reset
+        "order" ->
+          case decodeString orderDecoder event.data of
+            Ok order ->
+              Ok (NewOrder order)
+            Err error ->
+              Err error
+        _ ->
+          Err ("Unsupported event type: " ++ event.eventType)
+
+  in
+    case msg of
+      Ok msg -> msg
+      Err err -> Noop
+-}
+
 
 -- UPDATE
 
@@ -87,6 +148,9 @@ type Msg
   = NewLocation Navigation.Location
   | Tick Time.Time
   | Toc Date.Date
+  | SSEvent String
+
+
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -97,7 +161,51 @@ update msg model =
       (model, Task.perform Toc Date.now )
     Toc now ->
       ({ model | now = Just now }, Cmd.none)
+    SSEvent value ->
+      case decodeEvent value of
+        Ok Reset ->
+          ({ model | orders = [] }, Cmd.none)
+        Ok (NewOrder order) ->
+          ({ model | orders = order :: model.orders }, Cmd.none)
+        Err err ->
+          let
+            _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString value))
+          in
+            (model, Cmd.none)
 
+{-
+      let
+        result = SSE.decodeEvent event
+                  |> Result.andThen
+      in
+        case result of
+          Just result ->
+            result
+          Err err ->
+            let
+              _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString event))
+            in
+              (model, Cmd.none)
+
+      case SSE.decodeEvent event of
+        Ok event ->
+          case event.event of
+            "Reset" ->
+              ({ model | orders = [] }, Cmd.none)
+            "Order" ->
+              let
+                order = decodeValue orderDecoder event.data
+              in
+                case order of
+                  Ok order ->
+                    ({ model | orders = order :: model.orders }, Cmd.none)
+                  Err error ->
+                    let
+                      _ = Debug.log "Bad Order: " (error ++ " Data: " ++ (toString event.data))
+                    in
+                       (model, Cmd.none)
+            _ ->
+-}
 
 
 -- VIEW

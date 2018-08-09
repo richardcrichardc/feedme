@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title>Feedme</title>
 
@@ -38,8 +38,16 @@
           menuHeight = menuRect.height
         }
 
-        elmApp.ports.scrollPosition.send([yPosition, menuTop, menuHeight]);
+        elmApp.ports.scrollPosition.send([Math.round(yPosition), menuTop, menuHeight]);
       }
+
+      elmApp.ports.createEventSource.subscribe(function (url) {
+        var source = new EventSource(url)
+        source.onmessage = function(e) {
+          elmApp.ports.ssEvents.send(e.data)
+        }
+      })
+
     </script>
   </body>
 </html>

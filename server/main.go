@@ -24,7 +24,7 @@ func main() {
   router.HandleFunc("/{slug}/status", mw.GormTxHandler(db, getFrontEndStatus)).Methods("GET")
   router.HandleFunc("/placeOrder", mw.GormTxHandler(db, postPlaceOrder)).Methods("POST")
   router.HandleFunc("/{slug}/till", mw.GormTxHandler(db, getTill)).Methods("GET")
-
+  router.HandleFunc("/{slug}/till/events", mw.GormNoTxHandler(db, getTillStream)).Methods("GET")
 
   router.HandleFunc("/admin/restaurants", mw.GormTxHandler(db, getRestaurants)).Methods("GET")
   router.Handle("/admin/restaurants/{id}", mw.GormTxHandler(db, editform.Handler(NewEditRestaurantForm)))

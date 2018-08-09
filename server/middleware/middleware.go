@@ -73,6 +73,14 @@ func GormTxHandler(db *gorm.DB, handler GormTxHandlerFunc) http.HandlerFunc {
   }
 }
 
+func GormNoTxHandler(db *gorm.DB, handler GormTxHandlerFunc) http.HandlerFunc {
+  return func(w http.ResponseWriter, req *http.Request) {
+    sessionID := startSession(w, req)
+    handler(w, req, db, sessionID)
+  }
+}
+
+
 
 func startSession(w http.ResponseWriter, req *http.Request) string {
   var cookie *http.Cookie

@@ -67,7 +67,7 @@ func fetchLatestOrder(tx *gorm.DB, restaurantSlug, sessionID string) *Order {
 func fetchTillOrders(tx *gorm.DB, restaurantID uint) []TillOrder {
   var orders []TillOrder
 
-  checkError(tx.Table("orders").Order("number desc").Where("restaurant_id=?", restaurantID).Find(&orders).Error)
+  checkError(tx.Table("orders").Order("number asc").Where("restaurant_id=?", restaurantID).Find(&orders).Error)
 
   return orders
 }

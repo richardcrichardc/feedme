@@ -5,7 +5,6 @@ import (
   "github.com/jinzhu/gorm"
   _ "github.com/lib/pq"
   "gopkg.in/gormigrate.v1"
-  "log"
   "time"
 )
 
@@ -14,10 +13,7 @@ func initDB() *gorm.DB {
 
   db, err := gorm.Open("postgres", "dbname=feedme sslmode=disable")
   checkError(err)
-  log.Printf("DB: %v", db)
-
   db.LogMode(true)
-
 
   options := &gormigrate.Options{
     TableName:      "migrations",
@@ -25,7 +21,6 @@ func initDB() *gorm.DB {
     IDColumnSize:   255,
     UseTransaction: true,
   }
-
 
   m := gormigrate.New(db, options, []*gormigrate.Migration{
     {
