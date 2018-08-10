@@ -1,4 +1,4 @@
-package middleware
+package main
 
 import (
   "fmt"
@@ -9,6 +9,7 @@ import (
   "github.com/jinzhu/gorm"
   "crypto/rand"
   "encoding/base64"
+  "strings"
 )
 
 func Recover(next http.Handler, debugFlag bool) http.Handler {
@@ -50,9 +51,10 @@ func Recover(next http.Handler, debugFlag bool) http.Handler {
 
 // TODO rename these, not just Gorm Tx
 
-type GormTxHandlerFunc func(http.ResponseWriter, *http.Request, *gorm.DB, string)
+type RequestHandlerFunc func(http.ResponseWriter, *http.Request, *gorm.DB, string)
+type RestaurantHandlerFunc func(http.ResponseWriter, *http.Request, *gorm.DB, string, *Restaurant)
 
-func GormTxHandler(db *gorm.DB, handler GormTxHandlerFunc) http.HandlerFunc {
+func RequestHandler(db *gorm.DB, handler RequestHandlerFunc) http.HandlerFunc {
   return func(w http.ResponseWriter, req *http.Request) {
     tx := db.Begin()
     fmt.Println("Begin transaction")
@@ -73,14 +75,20 @@ func GormTxHandler(db *gorm.DB, handler GormTxHandlerFunc) http.HandlerFunc {
   }
 }
 
-func GormNoTxHandler(db *gorm.DB, handler GormTxHandlerFunc) http.HandlerFunc {
-  return func(w http.ResponseWriter, req *http.Request) {
-    sessionID := startSession(w, req)
-    handler(w, req, db, sessionID)
-  }
+func RestaurantHandler(db *gorm.DB, handler RestaurantHandlerFunc) http.HandlerFunc {
+  return RequestHandler(db, func(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
+    restaurant := RestaurantFromHostname(tx, req)
+    handler(w, req, tx, sessionID, restaurant)
+  })
 }
 
-
+func RestaurantHandlerNoTx(db *gorm.DB, handler RestaurantHandlerFunc) http.HandlerFunc {
+  return func(w http.ResponseWriter, req *http.Request) {
+    sessionID := startSession(w, req)
+    restaurant := RestaurantFromHostname(db, req)
+    handler(w, req, db, sessionID, restaurant)
+  }
+}
 
 func startSession(w http.ResponseWriter, req *http.Request) string {
   var cookie *http.Cookie
@@ -108,4 +116,37 @@ func randomIdString() string {
   }
 
   return base64.URLEncoding.EncodeToString(id)
+}
+
+func RestaurantFromHostname(db *gorm.DB, req *http.Request) *Restaurant {
+  var slug string
+  host := hostname(req)
+  domainName := Config.DomainName
+  splitPosition := len(host) - len(domainName) - 1
+
+  if splitPosition > 0 && host[splitPosition] == '.' && host[splitPosition+1:] == domainName {
+    slug = host[0:splitPosition]
+  } else {
+    panic(gorm.ErrRecordNotFound)
+  }
+
+  return fetchRestaurantBySlug(db, slug)
+}
+
+func hostname(req *http.Request) string {
+  // req.Host may be in format hostname:portnumber
+  return strings.Split(req.Host, ":")[0]
+}
+
+func port(req *http.Request) string {
+  // req.Host may be in format hostname:portnumber
+  parts := strings.Split(req.Host, ":")
+
+  if len(parts) == 2 {
+    return ":" + parts[1]
+  } else {
+    return ""
+  }
+
+
 }

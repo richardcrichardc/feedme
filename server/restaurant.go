@@ -48,16 +48,21 @@ func fetchRestaurantBySlug(tx *gorm.DB, slug string) *Restaurant {
 
 // List Restaurants
 
-type RestaurantSummary struct {
-  ID int
-  Slug string
-  Name string
-}
 
 func getRestaurants(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-  restaurants := make([]RestaurantSummary, 0)
-  checkError(tx.Table("restaurants").Find(&restaurants).Error)
-  templates.ElmApp(w, req, "Restaurants", restaurants)
+  var summaries []struct {
+    ID int
+    Slug string
+    Name string
+    URL string
+  }
+  checkError(tx.Table("restaurants").Find(&summaries).Error)
+
+  for i := range summaries {
+    summaries[i].URL = "http://" + summaries[i].Slug + "." + Config.DomainName + port(req) + "/"
+  }
+
+  templates.ElmApp(w, req, "Restaurants", summaries)
 }
 
 // Add/Edit Restaurant

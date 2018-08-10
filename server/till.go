@@ -1,7 +1,6 @@
 package main
 
 import (
-  "github.com/gorilla/mux"
   "net/http"
   "feedme/server/templates"
   "feedme/server/sse"
@@ -65,9 +64,7 @@ func writeTillStreams(restaurantID uint, event sse.Event) {
 // END all this
 
 
-func getTill(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-  slug := mux.Vars(req)["slug"]
-  restaurant := fetchRestaurantBySlug(tx, slug)
+func getTill(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
   orders := fetchTillOrders(tx, restaurant.ID)
 
   flags := struct {
@@ -81,10 +78,7 @@ func getTill(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID st
   templates.ElmApp(w, req, "BackEnd.Till", flags)
 }
 
-func getTillStream(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-  slug := mux.Vars(req)["slug"]
-  restaurant := fetchRestaurantBySlug(tx, slug)
-
+func getTillStream(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
   events := make(chan sse.Event, 64)
   events <- sse.Event{"reset", nil}
   addTillStream(restaurant.ID, events)

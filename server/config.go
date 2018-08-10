@@ -8,6 +8,8 @@ import (
 var Config struct {
   Debug bool
   GoogleStaticMapsKey string
+  DomainName string
+
 }
 
 func loadConfig() {

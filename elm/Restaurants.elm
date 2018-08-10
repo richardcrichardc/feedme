@@ -27,16 +27,18 @@ type alias Restaurant =
   { id : Int
   , slug : String
   , name : String
+  , url : String
   }
 
 decodeModel : Decoder Model
 decodeModel = list decodeRestaurant
 
 decodeRestaurant : Decoder Restaurant
-decodeRestaurant = Decode.map3 Restaurant
+decodeRestaurant = Decode.map4 Restaurant
     (field "ID" int )
     (field "Slug" string)
     (field "Name" string)
+    (field "URL" string)
 
 -- UPDATE
 
@@ -84,7 +86,7 @@ rowView restaurant =
   in
     Table.tr []
       [ Table.td [] [ text restaurant.slug ]
-      , Table.td [] [ a [ href ("/" ++ restaurant.slug) ] [ text restaurant.name ]]
+      , Table.td [] [ a [ href restaurant.url ] [ text restaurant.name ]]
       , Table.td []
         [ a [ href detailsLink ] [ text "Details" ]
         , a [ href menuLink, style [("margin-left", "1em")] ] [ text "Menu" ]

@@ -12,7 +12,6 @@ import (
   "log"
   "strings"
   "time"
-  mw "feedme/server/middleware"
  )
 
 type Form interface {
@@ -32,8 +31,10 @@ type Instance struct {
 
 type FormFactory func() Form
 
-func Handler(factory FormFactory) mw.GormTxHandlerFunc {
-  return func(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
+type HandlerFunc func(http.ResponseWriter, *http.Request, *gorm.DB)
+
+func Handler(factory FormFactory) HandlerFunc {
+  return func(w http.ResponseWriter, req *http.Request, tx *gorm.DB) {
     f := factory()
     fi := new(Instance)
     fi.Form = f

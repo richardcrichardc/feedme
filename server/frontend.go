@@ -1,7 +1,6 @@
 package main
 
 import (
-  "github.com/gorilla/mux"
   "net/http"
   "feedme/server/templates"
   "fmt"
@@ -12,9 +11,12 @@ import (
   "feedme/server/sse"
 )
 
-func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-  slug := mux.Vars(req)["slug"]
-  menu := fetchMenuForRestaurantSlug(tx, slug)
+func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
+  menu := fetchMenuForRestaurantID(tx, restaurant.ID)
+
+  if menu == nil {
+    menu = &Menu{Items: []MenuItem{}}
+  }
 
   flags := struct {
     Restaurant *Restaurant
@@ -22,7 +24,7 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionI
     Menu MenuItems
     GoogleStaticMapsKey string
   }{
-    menu.Restaurant,
+    restaurant,
     menu.ID,
     menu.Items,
     Config.GoogleStaticMapsKey,
@@ -32,10 +34,8 @@ func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionI
 }
 
 
-func getFrontEndStatus(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
-
-  slug := mux.Vars(req)["slug"]
-  order := fetchLatestOrder(tx, slug, sessionID)
+func getFrontEndStatus(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
+  order := fetchLatestOrder(tx, restaurant.ID, sessionID)
 
   if order == nil {
 
@@ -60,7 +60,7 @@ type OrderResult struct {
   Error string
 }
 
-func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string) {
+func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
   var order OrderWithSessionID
 
   body, _ := ioutil.ReadAll(req.Body)

@@ -50,6 +50,10 @@ func fetchMenuWhere(tx *gorm.DB, where interface{}, args ...interface{}) *Menu {
           Joins("LEFT JOIN restaurants ON restaurants.id = menus.restaurant_id").
           First(&menu).Error)
 
+  if gorm.IsRecordNotFoundError(err) {
+    return nil
+  }
+
   checkError(err)
 
   return &menu

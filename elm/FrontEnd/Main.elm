@@ -157,7 +157,7 @@ update msg model =
     PlaceOrderResponse response ->
       case response of
         (Ok Okay) ->
-          (model, Navigation.load ("/" ++ model.restaurant.slug ++ "/status"))
+          (model, Navigation.load ("/status"))
 
         (Ok (Error msg)) ->
           ({ model | orderStatus = Deciding (Just msg)}, Cmd.none)

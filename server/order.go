@@ -49,20 +49,20 @@ type OrderItem struct {
 }
 
 
-func fetchLatestOrder(tx *gorm.DB, restaurantSlug, sessionID string) *Order {
+func fetchLatestOrder(tx *gorm.DB, restaurantID uint, sessionID string) *Order {
   var order Order
 
   err := tx.
           Preload("Menu.Restaurant").
           Order("number desc").
-          Where("restaurants.slug=? AND orders.session_id=?", restaurantSlug, sessionID).
-          Joins("LEFT JOIN restaurants ON restaurants.id = orders.restaurant_id").
+          Where("restaurant_id=? AND orders.session_id=?", restaurantID, sessionID).
           First(&order).Error
 
   checkError(err)
 
   return &order
 }
+
 
 func fetchTillOrders(tx *gorm.DB, restaurantID uint) []TillOrder {
   var orders []TillOrder
@@ -71,8 +71,6 @@ func fetchTillOrders(tx *gorm.DB, restaurantID uint) []TillOrder {
 
   return orders
 }
-
-
 
 func (o *OrderItems) Scan(src interface{}) error {
   switch src.(type) {
