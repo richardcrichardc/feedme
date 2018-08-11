@@ -9,6 +9,7 @@ import (
   "github.com/jinzhu/gorm"
   "log"
   "feedme/server/sse"
+  "time"
 )
 
 func getFrontEnd(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
@@ -69,6 +70,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
   order.Menu = fetchMenu(tx, order.MenuID)
   order.RestaurantID = order.Menu.RestaurantID
   order.SessionID = sessionID
+  order.CreatedAt = time.Now()
 
   order.Recalc()
 
@@ -80,7 +82,15 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
 
   log.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
 
-  writeTillStreams(order.RestaurantID, sse.Event{"order", order})
+  writeTillStreams(order.RestaurantID, sse.Event{"order", &TillOrder{
+    Number: order.Number,
+    Name: order.Name,
+    Telephone: order.Telephone,
+    MenuID: order.MenuID,
+    MenuItems: order.Menu.Items,
+    Items: order.Items,
+    CreatedAt: order.CreatedAt,
+  }})
 
   json.NewEncoder(w).Encode(OrderResult{Status: "OK"})
 }

@@ -36,6 +36,7 @@ type TillOrder struct {
   Name string
   Telephone string
   MenuID uint
+  MenuItems MenuItems
   Items OrderItems
   CreatedAt time.Time
 }
@@ -68,6 +69,12 @@ func fetchTillOrders(tx *gorm.DB, restaurantID uint) []TillOrder {
   var orders []TillOrder
 
   checkError(tx.Table("orders").Order("number asc").Where("restaurant_id=?", restaurantID).Find(&orders).Error)
+
+  for i := range orders {
+    var menu Menu
+    checkError(tx.Take(&menu, orders[i].MenuID).Error)
+    orders[i].MenuItems = menu.Items
+  }
 
   return orders
 }

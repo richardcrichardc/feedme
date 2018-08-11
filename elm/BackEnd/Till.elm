@@ -16,7 +16,9 @@ import Util.Form exposing (spinner)
 import Date
 import Time exposing (every, second)
 import Task
-import Bootstrap.Table as Table
+import Bootstrap.Table as Table exposing (cellAttr)
+import Bootstrap.Button as Button
+import Bootstrap.Modal as Modal
 
 import Util.SSE as SSE
 
@@ -34,28 +36,24 @@ init flags location =
     ( decodeValue modelDecoder flags
     , Cmd.batch
         [ Task.perform Toc Date.now
-        , SSE.createEventSource "/das/till/events"
+        , SSE.createEventSource "/till/events"
         ]
     )
 
 -- MODEL
 
-type alias Flags =
-  { restaurant : Restaurant.Restaurant
-  , orders : List Order
-  }
-
 type alias Model =
   { restaurant : Restaurant.Restaurant
   , orders : List Order
   , now : Maybe Date.Date
+  , modalOrder : Maybe Order
   }
 
 type alias Order =
   { number : Int
   , name : String
   , telephone : String
-  , menuID : Int
+  , menu : Menu.Menu
   , order : Menu.Order
   , created : Date.Date
   }
@@ -67,6 +65,7 @@ modelDecoder =
       |> required "Restaurant" Restaurant.decode
       |> hardcoded []
       |> hardcoded Nothing
+      |> hardcoded Nothing
 
 orderDecoder : Decoder Order
 orderDecoder =
@@ -74,7 +73,7 @@ orderDecoder =
       |> required "Number" int
       |> required "Name" string
       |> required "Telephone" string
-      |> required "MenuID" int
+      |> required "MenuItems" Menu.menuDecoder
       |> required "Items" Menu.orderDecoder
       |> custom (field "CreatedAt" string |> andThen dateDecoder)
 
@@ -94,17 +93,20 @@ decodeEvent : String -> Result String Event
 decodeEvent eventStr =
   case SSE.decodeEvent eventStr of
     Ok event ->
-      case event.event of
-        "reset" ->
-          Ok Reset
-        "order" ->
-          case decodeValue orderDecoder event.data of
-            Ok order ->
-              Ok (NewOrder order)
-            Err err ->
-              Err err
-        _ ->
-          Err ("Unsupported event: " ++ event.event)
+      let
+        _ = Debug.log "Event" event
+      in
+        case event.event of
+          "reset" ->
+            Ok Reset
+          "order" ->
+            case decodeValue orderDecoder event.data of
+              Ok order ->
+                Ok (NewOrder order)
+              Err err ->
+                Err err
+          _ ->
+            Err ("Unsupported event: " ++ event.event)
     Err err ->
       Err err
 
@@ -124,6 +126,8 @@ type Msg
   | Tick Time.Time
   | Toc Date.Date
   | SSEvent String
+  | SelectOrder Order
+  | CloseModal
 
 
 
@@ -147,6 +151,10 @@ update msg model =
             _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString value))
           in
             (model, Cmd.none)
+    SelectOrder order ->
+      ({ model | modalOrder = Just order }, Cmd.none)
+    CloseModal ->
+      ({ model | modalOrder = Nothing }, Cmd.none)
 
 
 -- VIEW
@@ -154,7 +162,8 @@ update msg model =
 view : Model -> Html Msg
 view model =
   div []
-    [ navbar model
+    [ navbarView model
+    , modalView model.modalOrder
     , div [ class "container section status" ]
       [ h2 [] [ text "Orders " ]
       , ordersView model.now model.orders
@@ -163,8 +172,8 @@ view model =
     ]
 
 
-navbar : Model -> Html Msg
-navbar model =
+navbarView : Model -> Html Msg
+navbarView model =
   let
     title = model.restaurant.name ++ " - Till"
   in
@@ -172,26 +181,63 @@ navbar model =
       [ div [ class "clock" ] [ text (clock model.now) ]]
 
 
-ordersView : Maybe Date.Date -> List Order -> Html msg
+ordersView : Maybe Date.Date -> List Order -> Html Msg
 ordersView now orders =
   Table.simpleTable
     ( Table.simpleThead
-      [ Table.th [] [ text "Number" ]
+      [ Table.th [ cellAttr (class "text-center") ] [ text "#" ]
       , Table.th [] [ text "Time" ]
       , Table.th [] [ text "Name" ]
       , Table.th [] [ text "Phone" ]
+      , Table.th [ cellAttr (class "text-center") ] [ text "Items" ]
+      , Table.th [ cellAttr (class "text-right") ] [ text "Total" ]
+      , Table.th [] [ text "" ]
       ]
     , Table.tbody [] (List.map (ordersLineView now) orders)
     )
 
-ordersLineView : Maybe Date.Date -> Order -> Table.Row msg
+ordersLineView : Maybe Date.Date -> Order -> Table.Row Msg
 ordersLineView now order =
-  Table.tr []
-    [ Table.td [] [ text (toString order.number) ]
-    , Table.td [] [ text (formatCreated now order.created) ]
-    , Table.td [] [ text order.name ]
-    , Table.td [] [ text order.telephone ]
-    ]
+  let
+    (totalItems, totalPrice) = Menu.orderTotals order.menu order.order
+  in
+    Table.tr []
+      [ Table.td [ cellAttr (class "text-center") ] [ text (toString order.number) ]
+      , Table.td [] [ text (formatCreated now order.created) ]
+      , Table.td [] [ text order.name ]
+      , Table.td [] [ text order.telephone ]
+      , Table.td [ cellAttr (class "text-center") ] [ text totalItems ]
+      , Table.td [ cellAttr (class "text-right") ] [ text totalPrice ]
+      , Table.td [ cellAttr (class "text-right") ] [
+          Button.button
+            [ Button.small, Button.primary, Button.onClick (SelectOrder order)]
+            [ text "Details" ]
+        ]
+      ]
+
+
+modalView : Maybe Order -> Html Msg
+modalView order =
+  case order of
+    Nothing ->
+      text ""
+    Just order ->
+      let
+        title = "Order #" ++ (toString order.number) ++ " - " ++ order.name ++ " (" ++ order.telephone ++ ")"
+      in
+        Modal.config CloseModal
+          |> Modal.large
+          |> Modal.h5 [] [ text title ]
+          |> Modal.body [ class "d-flex flex-row" ]
+              [ div
+                  [ class "flex-grow-1" ]
+                  [ Menu.invoiceView order.menu order.order ]
+              , div
+                  [ ]
+                  [ Button.button [ Button.primary ] [ text "Button"] ]
+              ]
+          |> Modal.view Modal.shown
+
 
 timeBits : Date.Date -> (String, String, String, String)
 timeBits date =

@@ -65,14 +65,10 @@ func writeTillStreams(restaurantID uint, event sse.Event) {
 
 
 func getTill(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
-  orders := fetchTillOrders(tx, restaurant.ID)
-
   flags := struct {
     Restaurant *Restaurant
-    Orders []TillOrder
   }{
     restaurant,
-    orders,
   }
 
   templates.ElmApp(w, req, "BackEnd.Till", flags)
