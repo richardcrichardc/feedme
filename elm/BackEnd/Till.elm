@@ -62,8 +62,9 @@ type alias Order =
 
 type OrderStatus
   = New
-  | Expected Date.Date
   | Ready
+  | Expected Date.Date
+  | PickedUp
   | Rejected
 
 
@@ -158,27 +159,38 @@ orderComparison a b =
     New ->
       case b.status of
         New -> compareDate a.created b.created
-        Expected _ -> LT
         Ready -> LT
+        Expected _ -> LT
+        PickedUp -> LT
         Rejected -> LT
     Expected aExpected ->
       case b.status of
         New -> GT
+        Ready -> GT
         Expected bExpected -> compareDate aExpected bExpected
-        Ready -> LT
+        PickedUp -> LT
         Rejected -> LT
     Ready ->
-        case b.status of
-      New -> GT
-      Expected _ -> GT
-      Ready -> EQ
-      Rejected -> LT
+      case b.status of
+        New -> GT
+        Ready -> EQ
+        Expected _ -> LT
+        PickedUp -> LT
+        Rejected -> LT
+    PickedUp ->
+      case b.status of
+        New -> GT
+        Ready -> GT
+        Expected _ -> GT
+        PickedUp -> EQ
+        Rejected -> LT
     Rejected ->
       case b.status of
         New -> GT
-        Expected _ -> GT
         Ready -> GT
-        Rejected -> GT
+        Expected _ -> GT
+        PickedUp -> GT
+        Rejected -> EQ
 
 
 compareDate : Date.Date -> Date.Date -> Basics.Order
@@ -256,10 +268,10 @@ view : Model -> Html Msg
 view model =
   div []
     [ navbarView model
-    , modalView model.now model.modalOrder model.expected
+    , modalView model.now model.expected model.modalOrder
     , div [ class "container section" ]
       [ h2 [] [ text "Orders " ]
-      , ordersView model.now model.orders
+      , ordersView model.now model.expected model.orders
       ]
 
     ]
@@ -274,8 +286,8 @@ navbarView model =
       [ div [ class "clock" ] [ text (clock model.now) ]]
 
 
-ordersView : Date.Date -> List Order -> Html Msg
-ordersView now orders =
+ordersView : Date.Date -> Int -> List Order -> Html Msg
+ordersView now expected orders =
   Table.simpleTable
     ( Table.simpleThead
       [ Table.th [ cellAttr (class "text-center") ] [ text "#" ]
@@ -285,11 +297,11 @@ ordersView now orders =
       , Table.th [ cellAttr (class "text-center") ] [ text "Status" ]
       , Table.th [] [ text "" ]
       ]
-    , Table.tbody [] (List.map (ordersLineView now) orders)
+    , Table.tbody [] (List.map (ordersLineView now expected) orders)
     )
 
-ordersLineView : Date.Date -> Order -> Table.Row Msg
-ordersLineView now order =
+ordersLineView : Date.Date -> Int -> Order -> Table.Row Msg
+ordersLineView now expected order =
   let
     (totalItems, totalPrice) = Menu.orderTotals order.menu order.order
   in
@@ -299,16 +311,17 @@ ordersLineView now order =
       , Table.td [ cellAttr (class "text-center") ] [ text totalItems ]
       , Table.td [ cellAttr (class "text-right") ] [ text totalPrice ]
       , Table.td [ cellAttr (class "text-center") ] [ text (statusString now order.status) ]
-      , Table.td [ cellAttr (class "text-right") ] [
-          Button.button
-            [ Button.small, Button.primary, Button.onClick (SelectOrder order)]
-            [ text "Details" ]
-        ]
+      , Table.td [ cellAttr (class "text-right") ]
+          [ mostLikelyButton now expected order
+          , Button.button
+              [ Button.small, Button.primary, Button.onClick (SelectOrder order)]
+              [ text "Details" ]
+          ]
       ]
 
 
-modalView : Date.Date -> Maybe Order -> Int -> Html Msg
-modalView now order expected =
+modalView : Date.Date -> Int -> Maybe Order -> Html Msg
+modalView now expected order =
   case order of
     Nothing ->
       text ""
@@ -338,10 +351,35 @@ modalView now order expected =
                       ]
                   , statusButton order "Accept" (Expected (addMinutes now expected))
                   , statusButton order "Ready" Ready
+                  , statusButton order "Picked Up" PickedUp
                   , statusButton order "Reject" Rejected
                   ]
               ]
           |> Modal.view Modal.shown
+
+
+mostLikelyButton : Date.Date -> Int -> Order -> Html Msg
+mostLikelyButton now expected order =
+  let
+    button order label state =
+      Button.button
+        [ Button.primary
+        , Button.small
+        , Button.attrs [ class "mx-1" ]
+        , Button.onClick (SetStatus order state) ]
+        [ text label ]
+  in
+    case order.status of
+      New ->
+        text ""
+      Expected _ ->
+        button order "Ready" Ready
+      Ready ->
+        button order "Picked Up" PickedUp
+      PickedUp ->
+        text ""
+      Rejected ->
+        text ""
 
 
 timeButton : Order -> Int -> Html Msg
@@ -360,10 +398,11 @@ timeButton order delta =
 
 statusButton : Order -> String -> OrderStatus -> Html Msg
 statusButton order label state =
-  p [] [ Button.button
-          [ Button.primary, Button.onClick (SetStatus order state) ]
-          [ text label ]
-       ]
+  p []
+    [ Button.button
+        [ Button.primary, Button.onClick (SetStatus order state) ]
+        [ text label ]
+    ]
 
 
 timeBits : Date.Date -> (String, String, String, String)
@@ -420,6 +459,8 @@ statusString now status =
           |> toString )
       in
         "Expected: " ++ minutes ++ "m"
+    PickedUp ->
+      "Picked Up"
     _ ->
       toString status
 
