@@ -58,12 +58,11 @@ type alias Order =
   , order : Menu.Order
   , created : Date.Date
   , status : OrderStatus
-  , expected : Maybe Date.Date
   }
 
 type OrderStatus
   = New
-  | Accepted
+  | Expected Date.Date
   | Ready
   | Rejected
 
@@ -87,7 +86,6 @@ orderDecoder =
       |> required "Items" Menu.orderDecoder
       |> custom (field "CreatedAt" string |> andThen dateDecoder)
       |> hardcoded New
-      |> hardcoded Nothing
 
 
 dateDecoder : String -> Decoder Date.Date
@@ -130,33 +128,71 @@ subscriptions model =
   , SSE.ssEvents SSEvent
   ]
 
-updateOrderStatus : Model -> Order -> OrderStatus -> Model
-updateOrderStatus model order status =
+
+addMinutes : Date.Date -> Int -> Date.Date
+addMinutes date minutes =
+    Date.fromTime ((Date.toTime date) + (toFloat minutes * Time.minute))
+
+
+updateOrderStatus : List Order -> Order -> OrderStatus -> List Order
+updateOrderStatus orders order status =
   let
-    expected = Date.fromTime ((Date.toTime model.now) + (toFloat model.expected * Time.minute))
-    updatedExpected = case status of
-                        New ->
-                          Nothing
-                        Accepted ->
-                          Just expected
-                        Ready ->
-                          Just model.now
-                        Rejected ->
-                          Nothing
-    updatedOrder = { order |
-                      status = status,
-                      expected = updatedExpected
-                   }
+    updatedOrder = { order | status = status }
     replace original =
       if original.number == order.number then
         updatedOrder
       else
         original
+    updatedOrders = List.map replace orders
   in
-    { model |
-        orders = List.map replace model.orders,
-        modalOrder = Just updatedOrder
-    }
+    sortOrders updatedOrders
+
+
+sortOrders : List Order -> List Order
+sortOrders orders =
+  List.sortWith orderComparison orders
+
+orderComparison : Order -> Order -> Basics.Order
+orderComparison a b =
+  case a.status of
+    New ->
+      case b.status of
+        New -> compareDate a.created b.created
+        Expected _ -> LT
+        Ready -> LT
+        Rejected -> LT
+    Expected aExpected ->
+      case b.status of
+        New -> GT
+        Expected bExpected -> compareDate aExpected bExpected
+        Ready -> LT
+        Rejected -> LT
+    Ready ->
+        case b.status of
+      New -> GT
+      Expected _ -> GT
+      Ready -> EQ
+      Rejected -> LT
+    Rejected ->
+      case b.status of
+        New -> GT
+        Expected _ -> GT
+        Ready -> GT
+        Rejected -> GT
+
+
+compareDate : Date.Date -> Date.Date -> Basics.Order
+compareDate a b =
+  compare (Date.toTime a) (Date.toTime b)
+
+
+invertOrder: Basics.Order -> Basics.Order
+invertOrder order =
+  case order of
+    LT -> GT
+    EQ -> EQ
+    GT -> LT
+
 
 
 -- UPDATE
@@ -204,7 +240,11 @@ update msg model =
       ({ model | modalOrder = Nothing }, Cmd.none)
 
     SetStatus order status ->
-      ( updateOrderStatus model order status, Cmd.none)
+      ({ model |
+          orders = updateOrderStatus model.orders order status,
+          modalOrder = Nothing
+       }
+      , Cmd.none)
 
     ExpectedDelta delta ->
       ({ model | expected = model.expected + delta }, Cmd.none)
@@ -216,7 +256,7 @@ view : Model -> Html Msg
 view model =
   div []
     [ navbarView model
-    , modalView model.modalOrder model.expected
+    , modalView model.now model.modalOrder model.expected
     , div [ class "container section" ]
       [ h2 [] [ text "Orders " ]
       , ordersView model.now model.orders
@@ -238,8 +278,7 @@ ordersView : Date.Date -> List Order -> Html Msg
 ordersView now orders =
   Table.simpleTable
     ( Table.simpleThead
-      [ Table.th [] [ text "Expected" ]
-      , Table.th [ cellAttr (class "text-center") ] [ text "#" ]
+      [ Table.th [ cellAttr (class "text-center") ] [ text "#" ]
       , Table.th [] [ text "Name" ]
       , Table.th [ cellAttr (class "text-center") ] [ text "Items" ]
       , Table.th [ cellAttr (class "text-right") ] [ text "Total" ]
@@ -255,12 +294,11 @@ ordersLineView now order =
     (totalItems, totalPrice) = Menu.orderTotals order.menu order.order
   in
     Table.tr []
-      [ Table.td [] [ text (formatExpected now order.expected) ]
-      , Table.td [ cellAttr (class "text-center") ] [ text (toString order.number) ]
+      [ Table.td [ cellAttr (class "text-center") ] [ text (toString order.number) ]
       , Table.td [] [ text order.name ]
       , Table.td [ cellAttr (class "text-center") ] [ text totalItems ]
       , Table.td [ cellAttr (class "text-right") ] [ text totalPrice ]
-      , Table.td [ cellAttr (class "text-center") ] [ text (toString order.status) ]
+      , Table.td [ cellAttr (class "text-center") ] [ text (statusString now order.status) ]
       , Table.td [ cellAttr (class "text-right") ] [
           Button.button
             [ Button.small, Button.primary, Button.onClick (SelectOrder order)]
@@ -269,8 +307,8 @@ ordersLineView now order =
       ]
 
 
-modalView : Maybe Order -> Int -> Html Msg
-modalView order expected =
+modalView : Date.Date -> Maybe Order -> Int -> Html Msg
+modalView now order expected =
   case order of
     Nothing ->
       text ""
@@ -296,9 +334,9 @@ modalView order expected =
                          ]
                   , p [ class "status"]
                       [ span [ class "head"] [ text "Status: " ]
-                      , span [] [ text (toString order.status) ]
+                      , span [] [ text (statusString now order.status) ]
                       ]
-                  , statusButton order "Accept" Accepted
+                  , statusButton order "Accept" (Expected (addMinutes now expected))
                   , statusButton order "Ready" Ready
                   , statusButton order "Reject" Rejected
                   ]
@@ -371,17 +409,19 @@ formatCreated now created =
     date ++ " " ++ hh ++ ":" ++ mm ++ ap
 
 
-formatExpected : Date.Date -> Maybe Date.Date -> String
-formatExpected now expected =
-  case expected of
-    Nothing ->
-      ""
-    Just expected ->
-      (((Date.toTime expected) - (Date.toTime now))
-        |> Time.inMinutes
-        |> floor
-        |> toString ) ++ "m"
-
+statusString : Date.Date -> OrderStatus -> String
+statusString now status =
+  case status of
+    Expected expected ->
+      let
+        minutes = (((Date.toTime expected) - (Date.toTime now))
+          |> Time.inMinutes
+          |> floor
+          |> toString )
+      in
+        "Expected: " ++ minutes ++ "m"
+    _ ->
+      toString status
 
 clock : Date.Date -> String
 clock now =
