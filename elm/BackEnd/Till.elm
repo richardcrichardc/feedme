@@ -2,7 +2,8 @@ module BackEnd.Till exposing (..)
 
 import Util.Loader as Loader
 import Html exposing (..)
-import Html.Attributes exposing(class)
+import Html.Attributes exposing(class, src)
+import Html.Events exposing(onClick)
 import Navigation
 import Json.Decode as Decode exposing (
   Value, Decoder,
@@ -13,6 +14,7 @@ import Models.Restaurant as Restaurant
 import Models.Menu as Menu
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, custom)
 import Util.Form exposing (spinner)
+import Util.Sound as Sound
 import Date
 import Time exposing (every, second)
 import Task
@@ -48,6 +50,7 @@ type alias Model =
   , now : Date.Date
   , modalOrder : Maybe Order
   , expected : Int
+  , muted : Bool
   }
 
 type alias Order =
@@ -76,6 +79,7 @@ modelDecoder =
       |> hardcoded (Date.fromTime 0)
       |> hardcoded Nothing
       |> hardcoded 15
+      |> hardcoded True
 
 orderDecoder : Decoder Order
 orderDecoder =
@@ -218,6 +222,7 @@ type Msg
   | CloseModal
   | SetStatus Order OrderStatus
   | ExpectedDelta Int
+  | ToggleMute
 
 
 
@@ -238,7 +243,8 @@ update msg model =
         Ok Reset ->
           ({ model | orders = [] }, Cmd.none)
         Ok (NewOrder order) ->
-          ({ model | orders = order :: model.orders }, Cmd.none)
+          ({ model | orders = order :: model.orders },
+            if model.muted then Cmd.none else Sound.bell)
         Err err ->
           let
             _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString value))
@@ -261,6 +267,9 @@ update msg model =
     ExpectedDelta delta ->
       ({ model | expected = model.expected + delta }, Cmd.none)
 
+    ToggleMute ->
+      ({ model | muted = not model.muted }, Cmd.none)
+
 
 -- VIEW
 
@@ -273,7 +282,7 @@ view model =
       [ h2 [] [ text "Orders " ]
       , ordersView model.now model.expected model.orders
       ]
-
+    , Sound.bellView
     ]
 
 
@@ -281,24 +290,34 @@ navbarView : Model -> Html Msg
 navbarView model =
   let
     title = model.restaurant.name ++ " - Till"
+    muteIcon = if model.muted then
+                  "/assets/sound-off-429b15.svg"
+               else
+                  "/assets/sound-on-2769c5.svg"
+
   in
     Layout.navbarView title 1.0
-      [ div [ class "clock" ] [ text (clock model.now) ]]
+      [ img [ class "mute-button", src muteIcon, onClick ToggleMute ] []
+      , span [ class "clock" ] [ text (clock model.now) ]
+      ]
 
 
 ordersView : Date.Date -> Int -> List Order -> Html Msg
 ordersView now expected orders =
-  Table.simpleTable
-    ( Table.simpleThead
-      [ Table.th [ cellAttr (class "text-center") ] [ text "#" ]
-      , Table.th [] [ text "Name" ]
-      , Table.th [ cellAttr (class "text-center") ] [ text "Items" ]
-      , Table.th [ cellAttr (class "text-right") ] [ text "Total" ]
-      , Table.th [ cellAttr (class "text-center") ] [ text "Status" ]
-      , Table.th [] [ text "" ]
-      ]
-    , Table.tbody [] (List.map (ordersLineView now expected) orders)
-    )
+  Table.table
+    { options = [ Table.attr (class "table-fixed") ]
+    , thead =
+        Table.simpleThead
+          [ Table.th [ cellAttr (class "text-center") ] [ text "#" ]
+          , Table.th [] [ text "Name" ]
+          , Table.th [ cellAttr (class "text-center") ] [ text "Items" ]
+          , Table.th [ cellAttr (class "text-right") ] [ text "Total" ]
+          , Table.th [ cellAttr (class "text-center") ] [ text "Status" ]
+          , Table.th [] [ text "" ]
+          ]
+    , tbody =
+        Table.tbody [] (List.map (ordersLineView now expected) orders)
+    }
 
 ordersLineView : Date.Date -> Int -> Order -> Table.Row Msg
 ordersLineView now expected order =

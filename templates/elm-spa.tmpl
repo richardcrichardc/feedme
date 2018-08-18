@@ -48,6 +48,10 @@
         }
       })
 
+      elmApp.ports.playSound.subscribe(function (id) {
+        document.getElementById("bellSound").play()
+      })
+
     </script>
   </body>
 </html>

@@ -62,3 +62,12 @@ h2 {
   }
 }
 
+.table-fixed {
+  table-layout: fixed;
+}
+
+.mute-button {
+  margin: 0 $spacer*0.5;
+  position: relative;
+  top: -2px;
+}
