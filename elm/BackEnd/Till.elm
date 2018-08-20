@@ -290,7 +290,7 @@ update msg model =
         , sendOrderStatusUpdate updatedOrder)
 
     OrderStatusUpdateResponse order result ->
-      case result of
+      case (Debug.log "response" result) of
         (Ok _) ->
           ({ model | networkError = False }, Cmd.none)
 

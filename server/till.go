@@ -6,6 +6,11 @@ import (
   "feedme/server/sse"
   "github.com/jinzhu/gorm"
   "sync"
+  "encoding/json"
+  "time"
+  "strings"
+  "strconv"
+  "fmt"
 )
 
 var tillStreams map[uint][]chan sse.Event
@@ -87,4 +92,32 @@ func getTillStream(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessio
 
   sse.Stream(w, events)
   removeTillStream(restaurant.ID, events)
+}
+
+func postUpdateOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
+  update := struct {
+    Number int
+    Status string
+  }{}
+  checkError(json.NewDecoder(req.Body).Decode(&update))
+
+  var order Order
+  checkError(tx.Where("restaurant_id = ? AND Number = ?", restaurant.ID, update.Number).First(&order).Error)
+
+  statusFields := strings.Fields(update.Status)
+  order.Status = statusFields[0]
+
+  if len(statusFields) > 1 {
+    unixMillis, err := strconv.ParseInt(statusFields[1], 10, 64)
+    checkError(err)
+    statusDate := time.Unix(unixMillis / 1000, unixMillis % 1000)
+    order.StatusDate = &statusDate
+  } else {
+    order.StatusDate = nil
+  }
+
+  checkError(tx.Save(order).Error)
+
+  w.Header().Set("Content-Type", "application/json")
+  fmt.Fprintln(w, "\"OK\"")
 }

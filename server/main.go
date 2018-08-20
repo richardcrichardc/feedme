@@ -28,6 +28,7 @@ func main() {
   restaurantRouter.HandleFunc("/placeOrder", RestaurantHandler(db, postPlaceOrder)).Methods("POST")
   restaurantRouter.HandleFunc("/till", RestaurantHandler(db, getTill)).Methods("GET")
   restaurantRouter.HandleFunc("/till/events", RestaurantHandlerNoTx(db, getTillStream)).Methods("GET")
+  restaurantRouter.HandleFunc("/till/updateOrder", RestaurantHandlerNoTx(db, postUpdateOrder)).Methods("POST")
   addCommonRoutes(restaurantRouter, db)
 
   router := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
