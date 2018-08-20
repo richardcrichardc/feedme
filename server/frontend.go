@@ -70,6 +70,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
   order.Menu = fetchMenu(tx, order.MenuID)
   order.RestaurantID = order.Menu.RestaurantID
   order.SessionID = sessionID
+  order.Status = "New"
   order.CreatedAt = time.Now()
 
   order.Recalc()
@@ -89,6 +90,8 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
     MenuID: order.MenuID,
     MenuItems: order.Menu.Items,
     Items: order.Items,
+    Status: order.Status,
+    StatusDate: order.StatusDate,
     CreatedAt: order.CreatedAt,
   }})
 

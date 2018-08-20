@@ -23,6 +23,9 @@ type Order struct {
   GST Money
   Total Money
 
+  Status string
+  StatusDate *time.Time
+
   CreatedAt time.Time `gorm:"not null"`
 }
 
@@ -33,11 +36,16 @@ type OrderWithSessionID struct {
 
 type TillOrder struct {
   Number uint
+
   Name string
   Telephone string
   MenuID uint
   MenuItems MenuItems
   Items OrderItems
+
+  Status string
+  StatusDate *time.Time
+
   CreatedAt time.Time
 }
 

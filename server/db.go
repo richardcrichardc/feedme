@@ -62,8 +62,8 @@ func initDB() *gorm.DB {
         }
 
       type Order struct {
-          RestaurantID uint `gorm:"primary_key"`
-          Number uint `gorm:"primary_key"`
+          RestaurantID uint
+          Number uint
 
           Name string
           Telephone string
@@ -100,6 +100,18 @@ func initDB() *gorm.DB {
 
         err = tx.Model(&Order{}).AddIndex("orders_session_id_create_at_index", "session_id", "created_at").Error
         return err
+      },
+    },
+    {
+      ID: "2",
+      Migrate: func(tx *gorm.DB) error {
+        err := tx.Exec("CREATE TYPE orderstatus AS ENUM ('New', 'Ready', 'Expected', 'PickedUp', 'Rejected');").Error
+        if err != nil { return err }
+
+        err = tx.Exec("ALTER TABLE orders ADD COLUMN status orderstatus not null").Error
+        if err != nil { return err }
+
+        return tx.Exec("ALTER TABLE orders ADD COLUMN status_date timestamp with time zone").Error
       },
     },
   })

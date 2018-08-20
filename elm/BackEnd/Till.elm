@@ -9,6 +9,7 @@ import Json.Decode as Decode exposing (
   Value, Decoder,
   decodeValue, decodeString,
   field, andThen, fail, succeed, list, int, string)
+import Json.Encode as Encode
 import Views.Layout as Layout
 import Models.Restaurant as Restaurant
 import Models.Menu as Menu
@@ -21,8 +22,10 @@ import Task
 import Bootstrap.Table as Table exposing (cellAttr)
 import Bootstrap.Button as Button
 import Bootstrap.Modal as Modal
-
+import Process
 import Util.SSE as SSE
+import Http
+import Task
 
 main =
   Loader.programWithFlags2
@@ -51,6 +54,7 @@ type alias Model =
   , modalOrder : Maybe Order
   , expected : Int
   , muted : Bool
+  , networkError : Bool
   }
 
 type alias Order =
@@ -80,6 +84,7 @@ modelDecoder =
       |> hardcoded Nothing
       |> hardcoded 15
       |> hardcoded True
+      |> hardcoded False
 
 orderDecoder : Decoder Order
 orderDecoder =
@@ -90,7 +95,7 @@ orderDecoder =
       |> required "MenuItems" Menu.menuDecoder
       |> required "Items" Menu.orderDecoder
       |> custom (field "CreatedAt" string |> andThen dateDecoder)
-      |> hardcoded New
+      |> custom statusDecoder
 
 
 dateDecoder : String -> Decoder Date.Date
@@ -98,6 +103,33 @@ dateDecoder dateString =
   case Date.fromString dateString of
     Ok date -> succeed date
     Err err -> fail err
+
+
+statusDecoder : Decoder OrderStatus
+statusDecoder =
+  let
+    dateBit status str =
+      case Date.fromString str of
+        Ok date -> succeed (status date)
+        Err err -> fail err
+    statusBit str =
+        case str of
+          "New" ->
+            succeed New
+          "Ready" ->
+            succeed Ready
+          "Expected" ->
+            field "StatusDate" string
+              |> andThen (dateBit Expected)
+          "PickedUp" ->
+            succeed PickedUp
+          "Rejected" ->
+            succeed Rejected
+          _ ->
+            fail ("Bad Status: " ++ str)
+  in
+    field "Status" string |> andThen statusBit
+
 
 
 type Event
@@ -139,18 +171,16 @@ addMinutes date minutes =
     Date.fromTime ((Date.toTime date) + (toFloat minutes * Time.minute))
 
 
-updateOrderStatus : List Order -> Order -> OrderStatus -> List Order
-updateOrderStatus orders order status =
+replaceOrder : List Order -> Order -> List Order
+replaceOrder orders order =
   let
-    updatedOrder = { order | status = status }
     replace original =
       if original.number == order.number then
-        updatedOrder
+        order
       else
         original
-    updatedOrders = List.map replace orders
   in
-    sortOrders updatedOrders
+    List.map replace orders
 
 
 sortOrders : List Order -> List Order
@@ -221,9 +251,10 @@ type Msg
   | SelectOrder Order
   | CloseModal
   | SetStatus Order OrderStatus
+  | OrderStatusUpdateResponse Order (Result Http.Error String)
+  | ResendOrderStatusUpdate Order
   | ExpectedDelta Int
   | ToggleMute
-
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -258,17 +289,47 @@ update msg model =
       ({ model | modalOrder = Nothing }, Cmd.none)
 
     SetStatus order status ->
-      ({ model |
-          orders = updateOrderStatus model.orders order status,
-          modalOrder = Nothing
-       }
-      , Cmd.none)
+      let
+        updatedOrder = { order | status = status }
+      in
+        ({ model |
+            orders = sortOrders (replaceOrder model.orders updatedOrder),
+            modalOrder = Nothing
+         }
+        , sendOrderStatusUpdate updatedOrder)
+
+    OrderStatusUpdateResponse order result ->
+      case result of
+        (Ok _) ->
+          ({ model | networkError = False }, Cmd.none)
+
+        (Err err) ->
+          ({ model | networkError = True }
+          , Process.sleep (5 * Time.second)
+              |> Task.perform (\_ -> ResendOrderStatusUpdate order)
+          )
+
+    ResendOrderStatusUpdate order ->
+     (model , sendOrderStatusUpdate order)
 
     ExpectedDelta delta ->
       ({ model | expected = model.expected + delta }, Cmd.none)
 
     ToggleMute ->
       ({ model | muted = not model.muted }, Cmd.none)
+
+
+sendOrderStatusUpdate : Order -> Cmd Msg
+sendOrderStatusUpdate order =
+  let
+    body = Http.jsonBody
+      <| Encode.object
+          [ ("Number", Encode.int order.number)
+          , ("Status", Encode.string (toString order.status))
+          ]
+    request = Http.post "/till/updateOrder" body string
+  in
+    Http.send (OrderStatusUpdateResponse order) request
 
 
 -- VIEW
@@ -289,15 +350,23 @@ view model =
 navbarView : Model -> Html Msg
 navbarView model =
   let
-    title = model.restaurant.name ++ " - Till"
-    muteIcon = if model.muted then
-                  "/assets/sound-off-429b15.svg"
-               else
-                  "/assets/sound-on-2769c5.svg"
+    title =
+      model.restaurant.name ++ " - Till"
+    muteIcon =
+      if model.muted then
+        "/assets/sound-off-429b15.svg"
+      else
+        "/assets/sound-on-2769c5.svg"
+    networkError =
+      if model.networkError then
+        "Network error"
+      else
+        ""
 
   in
     Layout.navbarView title 1.0
-      [ img [ class "mute-button", src muteIcon, onClick ToggleMute ] []
+      [ span [] [ text networkError ]
+      , img [ class "mute-button", src muteIcon, onClick ToggleMute ] []
       , span [ class "clock" ] [ text (clock model.now) ]
       ]
 
