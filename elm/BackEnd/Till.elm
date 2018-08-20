@@ -40,7 +40,7 @@ init : Value -> Navigation.Location -> (Result String Model, Cmd Msg)
 init flags location =
     ( decodeValue modelDecoder flags
     , Cmd.batch
-        [ Task.perform Toc Date.now
+        [ Task.perform Tick Time.now
         , SSE.createEventSource "/till/events"
         ]
     )
@@ -50,7 +50,7 @@ init flags location =
 type alias Model =
   { restaurant : Restaurant.Restaurant
   , orders : List Order
-  , now : Date.Date
+  , now : Time.Time
   , modalOrder : Maybe Order
   , expected : Int
   , muted : Bool
@@ -63,14 +63,14 @@ type alias Order =
   , telephone : String
   , menu : Menu.Menu
   , order : Menu.Order
-  , created : Date.Date
+  , created : Time.Time
   , status : OrderStatus
   }
 
 type OrderStatus
   = New
   | Ready
-  | Expected Date.Date
+  | Expected Time.Time
   | PickedUp
   | Rejected
 
@@ -80,7 +80,7 @@ modelDecoder =
     decode Model
       |> required "Restaurant" Restaurant.decode
       |> hardcoded []
-      |> hardcoded (Date.fromTime 0)
+      |> hardcoded 0
       |> hardcoded Nothing
       |> hardcoded 15
       |> hardcoded True
@@ -98,10 +98,10 @@ orderDecoder =
       |> custom statusDecoder
 
 
-dateDecoder : String -> Decoder Date.Date
+dateDecoder : String -> Decoder Time.Time
 dateDecoder dateString =
   case Date.fromString dateString of
-    Ok date -> succeed date
+    Ok date -> succeed (Date.toTime date)
     Err err -> fail err
 
 
@@ -110,7 +110,7 @@ statusDecoder =
   let
     dateBit status str =
       case Date.fromString str of
-        Ok date -> succeed (status date)
+        Ok date -> succeed (status (Date.toTime date))
         Err err -> fail err
     statusBit str =
         case str of
@@ -166,9 +166,9 @@ subscriptions model =
   ]
 
 
-addMinutes : Date.Date -> Int -> Date.Date
-addMinutes date minutes =
-    Date.fromTime ((Date.toTime date) + (toFloat minutes * Time.minute))
+addMinutes : Time.Time -> Int -> Time.Time
+addMinutes time minutes =
+    time + (toFloat minutes * Time.minute)
 
 
 replaceOrder : List Order -> Order -> List Order
@@ -192,7 +192,7 @@ orderComparison a b =
   case a.status of
     New ->
       case b.status of
-        New -> compareDate a.created b.created
+        New -> compare a.created b.created
         Ready -> LT
         Expected _ -> LT
         PickedUp -> LT
@@ -201,7 +201,7 @@ orderComparison a b =
       case b.status of
         New -> GT
         Ready -> GT
-        Expected bExpected -> compareDate aExpected bExpected
+        Expected bExpected -> compare aExpected bExpected
         PickedUp -> LT
         Rejected -> LT
     Ready ->
@@ -227,11 +227,6 @@ orderComparison a b =
         Rejected -> EQ
 
 
-compareDate : Date.Date -> Date.Date -> Basics.Order
-compareDate a b =
-  compare (Date.toTime a) (Date.toTime b)
-
-
 invertOrder: Basics.Order -> Basics.Order
 invertOrder order =
   case order of
@@ -246,7 +241,6 @@ invertOrder order =
 type Msg
   = NewLocation Navigation.Location
   | Tick Time.Time
-  | Toc Date.Date
   | SSEvent String
   | SelectOrder Order
   | CloseModal
@@ -263,10 +257,7 @@ update msg model =
     NewLocation location ->
       (model, Cmd.none)
 
-    Tick _ ->
-      (model, Task.perform Toc Date.now )
-
-    Toc now ->
+    Tick now ->
       ({ model | now = now }, Cmd.none)
 
     SSEvent value ->
@@ -371,7 +362,7 @@ navbarView model =
       ]
 
 
-ordersView : Date.Date -> Int -> List Order -> Html Msg
+ordersView : Time.Time -> Int -> List Order -> Html Msg
 ordersView now expected orders =
   Table.table
     { options = [ Table.attr (class "table-fixed") ]
@@ -388,7 +379,7 @@ ordersView now expected orders =
         Table.tbody [] (List.map (ordersLineView now expected) orders)
     }
 
-ordersLineView : Date.Date -> Int -> Order -> Table.Row Msg
+ordersLineView : Time.Time -> Int -> Order -> Table.Row Msg
 ordersLineView now expected order =
   let
     (totalItems, totalPrice) = Menu.orderTotals order.menu order.order
@@ -408,7 +399,7 @@ ordersLineView now expected order =
       ]
 
 
-modalView : Date.Date -> Int -> Maybe Order -> Html Msg
+modalView : Time.Time -> Int -> Maybe Order -> Html Msg
 modalView now expected order =
   case order of
     Nothing ->
@@ -446,7 +437,7 @@ modalView now expected order =
           |> Modal.view Modal.shown
 
 
-mostLikelyButton : Date.Date -> Int -> Order -> Html Msg
+mostLikelyButton : Time.Time -> Int -> Order -> Html Msg
 mostLikelyButton now expected order =
   let
     button order label state =
@@ -536,12 +527,12 @@ formatCreated now created =
     date ++ " " ++ hh ++ ":" ++ mm ++ ap
 
 
-statusString : Date.Date -> OrderStatus -> String
+statusString : Time.Time -> OrderStatus -> String
 statusString now status =
   case status of
     Expected expected ->
       let
-        minutes = (((Date.toTime expected) - (Date.toTime now))
+        minutes = ((expected - now)
           |> Time.inMinutes
           |> floor
           |> toString )
@@ -552,9 +543,9 @@ statusString now status =
     _ ->
       toString status
 
-clock : Date.Date -> String
+clock : Time.Time -> String
 clock now =
   let
-    (hh, mm, ss, ap) = timeBits now
+    (hh, mm, ss, ap) = timeBits (Date.fromTime now)
   in
     hh ++ ":" ++ mm ++ ":" ++ ss ++ ap
