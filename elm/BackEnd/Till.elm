@@ -13,6 +13,9 @@ import Json.Encode as Encode
 import Views.Layout as Layout
 import Models.Restaurant as Restaurant
 import Models.Menu as Menu
+import Models.OrderStatus as OrderStatus exposing (
+  OrderStatus, StatusUpdate,
+  dateDecoder, statusDecoder, statusUpdateDecoder)
 import Json.Decode.Pipeline exposing (decode, required, hardcoded, custom)
 import Util.Form exposing (spinner)
 import Util.Sound as Sound
@@ -67,18 +70,6 @@ type alias Order =
   , status : OrderStatus
   }
 
-type alias StatusUpdate =
-  { number : Int
-  , status : OrderStatus
-  }
-
-type OrderStatus
-  = New
-  | Ready
-  | Expected Time.Time
-  | PickedUp
-  | Rejected
-
 
 modelDecoder : Decoder Model
 modelDecoder =
@@ -101,45 +92,6 @@ orderDecoder =
       |> required "Items" Menu.orderDecoder
       |> custom (field "CreatedAt" string |> andThen dateDecoder)
       |> custom statusDecoder
-
-statusUpdateDecoder : Decoder StatusUpdate
-statusUpdateDecoder =
-  decode StatusUpdate
-      |> required "Number" int
-      |> custom statusDecoder
-
-dateDecoder : String -> Decoder Time.Time
-dateDecoder dateString =
-  case Date.fromString dateString of
-    Ok date -> succeed (Date.toTime date)
-    Err err -> fail err
-
-
-statusDecoder : Decoder OrderStatus
-statusDecoder =
-  let
-    dateBit status str =
-      case Date.fromString str of
-        Ok date -> succeed (status (Date.toTime date))
-        Err err -> fail err
-    statusBit str =
-        case str of
-          "New" ->
-            succeed New
-          "Ready" ->
-            succeed Ready
-          "Expected" ->
-            field "StatusDate" string
-              |> andThen (dateBit Expected)
-          "PickedUp" ->
-            succeed PickedUp
-          "Rejected" ->
-            succeed Rejected
-          _ ->
-            fail ("Bad Status: " ++ str)
-  in
-    field "Status" string |> andThen statusBit
-
 
 
 type Event
@@ -202,55 +154,11 @@ updateOrderStatus orders update =
 
 sortOrders : List Order -> List Order
 sortOrders orders =
-  List.sortWith orderComparison orders
-
-orderComparison : Order -> Order -> Basics.Order
-orderComparison a b =
-  case a.status of
-    New ->
-      case b.status of
-        New -> compare a.created b.created
-        Ready -> LT
-        Expected _ -> LT
-        PickedUp -> LT
-        Rejected -> LT
-    Expected aExpected ->
-      case b.status of
-        New -> GT
-        Ready -> GT
-        Expected bExpected -> compare aExpected bExpected
-        PickedUp -> LT
-        Rejected -> LT
-    Ready ->
-      case b.status of
-        New -> GT
-        Ready -> EQ
-        Expected _ -> LT
-        PickedUp -> LT
-        Rejected -> LT
-    PickedUp ->
-      case b.status of
-        New -> GT
-        Ready -> GT
-        Expected _ -> GT
-        PickedUp -> EQ
-        Rejected -> LT
-    Rejected ->
-      case b.status of
-        New -> GT
-        Ready -> GT
-        Expected _ -> GT
-        PickedUp -> GT
-        Rejected -> EQ
-
-
-invertOrder: Basics.Order -> Basics.Order
-invertOrder order =
-  case order of
-    LT -> GT
-    EQ -> EQ
-    GT -> LT
-
+  let
+    orderComparison a b =
+      OrderStatus.comparison a.status b.status
+  in
+    List.sortWith orderComparison orders
 
 
 -- UPDATE
@@ -445,10 +353,10 @@ modalView now expected order =
                       [ span [ class "head"] [ text "Status: " ]
                       , span [] [ text (statusString now order.status) ]
                       ]
-                  , statusButton order "Accept" (Expected (addMinutes now expected))
-                  , statusButton order "Ready" Ready
-                  , statusButton order "Picked Up" PickedUp
-                  , statusButton order "Reject" Rejected
+                  , statusButton order "Accept" (OrderStatus.Expected (addMinutes now expected))
+                  , statusButton order "Ready" OrderStatus.Ready
+                  , statusButton order "Picked Up" OrderStatus.PickedUp
+                  , statusButton order "Reject" OrderStatus.Rejected
                   ]
               ]
           |> Modal.view Modal.shown
@@ -466,15 +374,15 @@ mostLikelyButton now expected order =
         [ text label ]
   in
     case order.status of
-      New ->
+      OrderStatus.New _ ->
         text ""
-      Expected _ ->
-        button order "Ready" Ready
-      Ready ->
-        button order "Picked Up" PickedUp
-      PickedUp ->
+      OrderStatus.Expected _ ->
+        button order "Ready" OrderStatus.Ready
+      OrderStatus.Ready ->
+        button order "Picked Up" OrderStatus.PickedUp
+      OrderStatus.PickedUp ->
         text ""
-      Rejected ->
+      OrderStatus.Rejected ->
         text ""
 
 
@@ -547,7 +455,9 @@ formatCreated now created =
 statusString : Time.Time -> OrderStatus -> String
 statusString now status =
   case status of
-    Expected expected ->
+    OrderStatus.New _ ->
+      "New"
+    OrderStatus.Expected expected ->
       let
         minutes = ((expected - now)
           |> Time.inMinutes
@@ -555,7 +465,7 @@ statusString now status =
           |> toString )
       in
         "Expected: " ++ minutes ++ "m"
-    PickedUp ->
+    OrderStatus.PickedUp ->
       "Picked Up"
     _ ->
       toString status

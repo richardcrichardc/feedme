@@ -72,6 +72,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
   order.SessionID = sessionID
   order.Status = "New"
   order.CreatedAt = time.Now()
+  order.StatusDate = &order.CreatedAt
 
   order.Recalc()
 
