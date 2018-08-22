@@ -49,6 +49,13 @@ type TillOrder struct {
   CreatedAt time.Time
 }
 
+type OrderStatusUpdate struct {
+  RestaurantID uint
+  Number uint
+  Status string
+  StatusDate *time.Time
+}
+
 
 type OrderItems []OrderItem
 

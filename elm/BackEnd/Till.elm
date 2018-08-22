@@ -67,6 +67,11 @@ type alias Order =
   , status : OrderStatus
   }
 
+type alias StatusUpdate =
+  { number : Int
+  , status : OrderStatus
+  }
+
 type OrderStatus
   = New
   | Ready
@@ -97,6 +102,11 @@ orderDecoder =
       |> custom (field "CreatedAt" string |> andThen dateDecoder)
       |> custom statusDecoder
 
+statusUpdateDecoder : Decoder StatusUpdate
+statusUpdateDecoder =
+  decode StatusUpdate
+      |> required "Number" int
+      |> custom statusDecoder
 
 dateDecoder : String -> Decoder Time.Time
 dateDecoder dateString =
@@ -133,8 +143,9 @@ statusDecoder =
 
 
 type Event
-  = Reset
-  | NewOrder Order
+  = ResetEvent
+  | NewOrderEvent Order
+  | StatusUpdateEvent StatusUpdate
 
 decodeEvent : String -> Result String Event
 decodeEvent eventStr =
@@ -145,11 +156,17 @@ decodeEvent eventStr =
       in
         case event.event of
           "reset" ->
-            Ok Reset
+            Ok ResetEvent
           "order" ->
             case decodeValue orderDecoder event.data of
               Ok order ->
-                Ok (NewOrder order)
+                Ok (NewOrderEvent order)
+              Err err ->
+                Err err
+          "statusUpdate" ->
+            case decodeValue statusUpdateDecoder event.data of
+              Ok update ->
+                Ok (StatusUpdateEvent update)
               Err err ->
                 Err err
           _ ->
@@ -171,16 +188,16 @@ addMinutes time minutes =
     time + (toFloat minutes * Time.minute)
 
 
-replaceOrder : List Order -> Order -> List Order
-replaceOrder orders order =
+updateOrderStatus : List Order -> StatusUpdate -> List Order
+updateOrderStatus orders update =
   let
-    replace original =
-      if original.number == order.number then
-        order
+    updater order =
+      if order.number == update.number then
+        { order | status = update.status }
       else
-        original
+        order
   in
-    List.map replace orders
+    sortOrders (List.map updater orders)
 
 
 sortOrders : List Order -> List Order
@@ -244,9 +261,9 @@ type Msg
   | SSEvent String
   | SelectOrder Order
   | CloseModal
-  | SetStatus Order OrderStatus
-  | OrderStatusUpdateResponse Order (Result Http.Error String)
-  | ResendOrderStatusUpdate Order
+  | SetStatus StatusUpdate
+  | OrderStatusUpdateResponse StatusUpdate (Result Http.Error String)
+  | ResendOrderStatusUpdate StatusUpdate
   | ExpectedDelta Int
   | ToggleMute
 
@@ -262,11 +279,14 @@ update msg model =
 
     SSEvent value ->
       case decodeEvent value of
-        Ok Reset ->
+        Ok ResetEvent ->
           ({ model | orders = [] }, Cmd.none)
-        Ok (NewOrder order) ->
+        Ok (NewOrderEvent order) ->
           ({ model | orders = order :: model.orders },
             if model.muted then Cmd.none else Sound.bell)
+        Ok (StatusUpdateEvent update) ->
+          ({ model | orders = updateOrderStatus model.orders update}
+          , Cmd.none)
         Err err ->
           let
             _ = Debug.log "Bad SSEvent: " (err ++ " Event: " ++ (toString value))
@@ -279,17 +299,14 @@ update msg model =
     CloseModal ->
       ({ model | modalOrder = Nothing }, Cmd.none)
 
-    SetStatus order status ->
-      let
-        updatedOrder = { order | status = status }
-      in
-        ({ model |
-            orders = sortOrders (replaceOrder model.orders updatedOrder),
-            modalOrder = Nothing
-         }
-        , sendOrderStatusUpdate updatedOrder)
+    SetStatus update ->
+      ({ model |
+          orders = updateOrderStatus model.orders update,
+          modalOrder = Nothing
+       }
+      , sendOrderStatusUpdate update)
 
-    OrderStatusUpdateResponse order result ->
+    OrderStatusUpdateResponse update result ->
       case (Debug.log "response" result) of
         (Ok _) ->
           ({ model | networkError = False }, Cmd.none)
@@ -297,11 +314,11 @@ update msg model =
         (Err err) ->
           ({ model | networkError = True }
           , Process.sleep (5 * Time.second)
-              |> Task.perform (\_ -> ResendOrderStatusUpdate order)
+              |> Task.perform (\_ -> ResendOrderStatusUpdate update)
           )
 
-    ResendOrderStatusUpdate order ->
-     (model , sendOrderStatusUpdate order)
+    ResendOrderStatusUpdate update ->
+     (model , sendOrderStatusUpdate update)
 
     ExpectedDelta delta ->
       ({ model | expected = model.expected + delta }, Cmd.none)
@@ -310,17 +327,17 @@ update msg model =
       ({ model | muted = not model.muted }, Cmd.none)
 
 
-sendOrderStatusUpdate : Order -> Cmd Msg
-sendOrderStatusUpdate order =
+sendOrderStatusUpdate : StatusUpdate -> Cmd Msg
+sendOrderStatusUpdate update =
   let
     body = Http.jsonBody
       <| Encode.object
-          [ ("Number", Encode.int order.number)
-          , ("Status", Encode.string (toString order.status))
+          [ ("Number", Encode.int update.number)
+          , ("Status", Encode.string (toString update.status))
           ]
     request = Http.post "/till/updateOrder" body string
   in
-    Http.send (OrderStatusUpdateResponse order) request
+    Http.send (OrderStatusUpdateResponse update) request
 
 
 -- VIEW
@@ -445,7 +462,7 @@ mostLikelyButton now expected order =
         [ Button.primary
         , Button.small
         , Button.attrs [ class "mx-1" ]
-        , Button.onClick (SetStatus order state) ]
+        , Button.onClick (SetStatus (StatusUpdate order.number state)) ]
         [ text label ]
   in
     case order.status of
@@ -479,7 +496,7 @@ statusButton : Order -> String -> OrderStatus -> Html Msg
 statusButton order label state =
   p []
     [ Button.button
-        [ Button.primary, Button.onClick (SetStatus order state) ]
+        [ Button.primary, Button.onClick (SetStatus (StatusUpdate order.number state)) ]
         [ text label ]
     ]
 
