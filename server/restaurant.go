@@ -5,6 +5,7 @@ import (
   "github.com/jinzhu/gorm"
 )
 
+type restaurantStreamId int
 
 type Restaurant struct {
   ID uint

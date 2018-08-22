@@ -9,9 +9,7 @@ import (
   "feedme/server/templates"
   "feedme/server/editform"
   "github.com/jinzhu/gorm"
-)
-
-
+ )
 
 func main() {
   loadConfig()

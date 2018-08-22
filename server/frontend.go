@@ -83,7 +83,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
 
   log.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
 
-  writeTillStreams(order.RestaurantID, sse.Event{"order", &TillOrder{
+  sse.Send(restaurantStreamId(order.RestaurantID), &sse.Event{"order", &TillOrder{
     Number: order.Number,
     Name: order.Name,
     Telephone: order.Telephone,
