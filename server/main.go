@@ -23,6 +23,7 @@ func main() {
   restaurantRouter := mux.NewRouter()
   restaurantRouter.HandleFunc("/", RestaurantHandler(db, getFrontEnd)).Methods("GET")
   restaurantRouter.HandleFunc("/status", RestaurantHandler(db, getFrontEndStatus)).Methods("GET")
+  restaurantRouter.HandleFunc("/status/stream", RestaurantHandler(db, getFrontEndStatusStream)).Methods("GET")
   restaurantRouter.HandleFunc("/placeOrder", RestaurantHandler(db, postPlaceOrder)).Methods("POST")
   restaurantRouter.HandleFunc("/till", RestaurantHandler(db, getTill)).Methods("GET")
   restaurantRouter.HandleFunc("/till/events", RestaurantHandlerNoTx(db, getTillStream)).Methods("GET")

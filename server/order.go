@@ -49,6 +49,11 @@ type TillOrder struct {
   CreatedAt time.Time
 }
 
+type restaurantOrderStreamKey struct {
+  RestaurantID uint
+  Number uint
+}
+
 type OrderStatusUpdate struct {
   RestaurantID uint
   Number uint
@@ -56,14 +61,12 @@ type OrderStatusUpdate struct {
   StatusDate *time.Time
 }
 
-
 type OrderItems []OrderItem
 
 type OrderItem struct {
   Id int
   Qty int
 }
-
 
 func fetchLatestOrder(tx *gorm.DB, restaurantID uint, sessionID string) *Order {
   var order Order

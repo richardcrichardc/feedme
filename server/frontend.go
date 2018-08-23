@@ -46,13 +46,32 @@ func getFrontEndStatus(w http.ResponseWriter, req *http.Request, tx *gorm.DB, se
     Restaurant *Restaurant
     Menu MenuItems
     Order OrderItems
+    Status string
+    StatusDate *time.Time
   }{
     order.Menu.Restaurant,
     order.Menu.Items,
     order.Items,
+    order.Status,
+    order.StatusDate,
   }
 
   templates.ElmApp(w, req, "FrontEnd.Status", flags)
+}
+
+func getFrontEndStatusStream(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
+  order := fetchLatestOrder(tx, restaurant.ID, sessionID)
+
+  initialEvent := sse.Event{
+    "statusUpdate",
+    &OrderStatusUpdate{
+      RestaurantID: order.RestaurantID,
+      Number: order.Number,
+      Status: order.Status,
+      StatusDate: order.StatusDate,
+  }}
+
+  sse.Stream(w, []sse.Event{initialEvent}, restaurantOrderStreamKey{order.RestaurantID, order.Number})
 }
 
 
@@ -84,7 +103,7 @@ func postPlaceOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessi
 
   log.Printf("PlaceOrder:\n%s\n%#v\n", body, order)
 
-  sse.Send(restaurantStreamId(order.RestaurantID), &sse.Event{"order", &TillOrder{
+  sse.Send(restaurantStreamKey(order.RestaurantID), &sse.Event{"order", &TillOrder{
     Number: order.Number,
     Name: order.Name,
     Telephone: order.Telephone,

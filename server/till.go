@@ -30,7 +30,7 @@ func getTillStream(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessio
     events = append(events, sse.Event{"order", order})
   }
 
-  sse.Stream(w, events, restaurantStreamId(restaurant.ID))
+  sse.Stream(w, events, restaurantStreamKey(restaurant.ID))
 }
 
 func postUpdateOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sessionID string, restaurant *Restaurant) {
@@ -57,15 +57,18 @@ func postUpdateOrder(w http.ResponseWriter, req *http.Request, tx *gorm.DB, sess
 
   checkError(tx.Save(order).Error)
 
-  statusUpdate := OrderStatusUpdate{
-    RestaurantID: order.RestaurantID,
-    Number: order.Number,
-    Status: order.Status,
-    StatusDate: order.StatusDate,
-  }
+  // send status updates to customers and other tills
+  event := &sse.Event{
+    "statusUpdate",
+    &OrderStatusUpdate{
+      RestaurantID: order.RestaurantID,
+      Number: order.Number,
+      Status: order.Status,
+      StatusDate: order.StatusDate,
+  }}
+  sse.Send(restaurantOrderStreamKey{order.RestaurantID, order.Number}, event)
+  sse.Send(restaurantStreamKey(order.RestaurantID), event)
 
-  // send updated order to all tills
-  sse.Send(restaurantStreamId(order.RestaurantID), &sse.Event{"statusUpdate", &statusUpdate})
 
   w.Header().Set("Content-Type", "application/json")
   fmt.Fprintln(w, "\"OK\"")
