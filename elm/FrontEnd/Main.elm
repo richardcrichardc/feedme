@@ -236,7 +236,7 @@ view model =
 navbarView : Model -> Html Msg
 navbarView model =
   let
-    opacity = 1.0 --navbarOpacity model
+    opacity = navbarOpacity model
   in
     Layout.navbarView model.restaurant.name opacity
       <| case model.page of
