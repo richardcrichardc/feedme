@@ -190,10 +190,10 @@ update msg model =
         Ok ResetEvent ->
           ({ model | orders = [] }, Cmd.none)
         Ok (NewOrderEvent order) ->
-          ({ model | orders = order :: model.orders },
+          ({ model | orders = sortOrders (order :: model.orders) },
             if model.muted then Cmd.none else Sound.bell)
         Ok (StatusUpdateEvent update) ->
-          ({ model | orders = updateOrderStatus model.orders update}
+          ({ model | orders = sortOrders (updateOrderStatus model.orders update) }
           , Cmd.none)
         Err err ->
           let
