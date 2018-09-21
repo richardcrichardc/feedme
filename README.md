@@ -8,7 +8,7 @@ This is a side project I have been working on to learn [Elm](http://elm-lang.org
 
 It is not a complete system, one notable missing part is any kind of authentication. In it's current state anyone can browse to the pages used by restaurants and administrators.
 
-##Screenshots
+## Screenshots
  
 Here are some screenshots so you can get an idea of the user experience. Clearly, it needs some attention from a graphic designer.
 
@@ -68,10 +68,11 @@ If you want to build this project yourself you will need:
  1. Install my [fork] (https://github.com/richardcrichardc/gin) of Gin build tool (`go get https://github.com/richardcrichardc/gin`)
  1. Install Postgres and create the database feedme (`createdb feedme`)
  1. Clone this repo (`go get github.com/richardcrichardc/gin`) and `cd` to the project directory 
+ 1. Install dependencies of stylesheet builder `npm install`
  1. `cp config.json.example` to `config.json` and update appropriately  
  1. From the project directory run `gin -all` 
 
-This runs the development server on all network interfaces port 3000, with the app being rebuilt whenever the source is changed. I don't have a release build process yet. It is not the most straight forward process - open a issue if you get stuck on this and I will help you get it running.
+This runs the development server on all network interfaces port 3000, with the app being rebuilt whenever the source is changed. I don't have a release build process yet. It is not the most straight forward process and may contain errors - open a issue if you get stuck on this and I will help you get it running.
 
 To get started using the app browse to http://localhost/admin/restaurants. Once you have added a restaurant, you can click through to it, but this will not work until you have DNS set up for the restaurants. Restaurants are hosted on subdomains of the `DomainName` from `config.json`. You could add the domains to your `/etc/hosts/` file or if you have a handy domain name, add Global DNS records to your local machine like I have:
 
