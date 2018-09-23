@@ -1,1 +1,2 @@
-elm/forked-deps/* linguist-vendored
+elm/forked-deps/** linguist-vendored
+scss/bootstrap/** linguist-vendored
